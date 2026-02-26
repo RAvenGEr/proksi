@@ -12,6 +12,7 @@ Proksi is evolving day by day, and new features are being added all the time. Be
 - [X] **Basic** Authentication
 - [X] **Oauth2** Authentication (Google, Facebook, ✅ Github, ✅ WorkOs etc)
 - [X] **RequestId** Middleware
+- [X] **External Auth** via Unix socket (Cap'n Proto)
 
 
 We are constantly adding new features, and we welcome your feedback and contributions. If you have any suggestions or ideas, please feel free to open an issue or a pull request on the GitHub repository.

@@ -32,6 +32,7 @@
 * [Request ID](plugins/request-id.md)
 * [Basic Auth](plugins/basic-auth.md)
 * [OAuth2](plugins/oauth2.md)
+* [External Auth](plugins/external-auth.md)
 
 ## Use cases
 
