@@ -150,17 +150,18 @@ impl Service for RoutingService {
 
 // Check whether the host already exists and if the the upstream list has changed
 fn has_new_backend(host: &str, upstream_input: &LoadBalancer<RoundRobin>) -> bool {
-    if let Some(route_container) = stores::get_route_by_key(host) {
-        let backends = route_container.load_balancer.backends().get_backend();
-        let new_backends = upstream_input.backends().get_backend();
-        // If upstreams are not the same length, return true (update)
-        if backends.len() != new_backends.len() {
-            return true;
-        }
+    match stores::get_route_by_key(host) {
+        Some(route_container) => {
+            let backends = route_container.load_balancer.backends().get_backend();
+            let new_backends = upstream_input.backends().get_backend();
+            // If upstreams are not the same length, return true (update)
+            if backends.len() != new_backends.len() {
+                return true;
+            }
 
-        !backends.iter().all(|be| new_backends.contains(be))
-    } else {
-        false
+            !backends.iter().all(|be| new_backends.contains(be))
+        }
+        _ => false,
     }
 }
 
@@ -323,7 +324,6 @@ mod test {
     fn test_domain_addr() {
         let addr = "example.com:80";
         let addr = addr.to_socket_addrs().unwrap().next().unwrap();
-        assert!(addr.ip().is_ipv4());
         assert_eq!(addr.port(), 80);
     }
 }

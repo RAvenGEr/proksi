@@ -163,10 +163,10 @@ impl ExternalAuth {
                 break;
             }
 
-            if let Some(allowlist) = cfg.header_allowlist.as_ref() {
-                if !allowlist.contains(&key.as_str().to_ascii_lowercase()) {
-                    continue;
-                }
+            if let Some(allowlist) = cfg.header_allowlist.as_ref()
+                && !allowlist.contains(&key.as_str().to_ascii_lowercase())
+            {
+                continue;
             }
 
             headers.push((

@@ -124,19 +124,15 @@ impl ProxyHttp for Router {
             return Ok(true);
         }
 
-        if let Some(cache) = route_container.cache.as_ref() {
-            if cache.enabled.unwrap_or(false) {
-                let storage = get_cache_storage(&cache.cache_type);
+        if let Some(cache) = route_container.cache.as_ref()
+            && cache.enabled.unwrap_or(false)
+        {
+            let storage = get_cache_storage(&cache.cache_type);
 
-                stores::insert_cache_routing(
-                    &ctx.host,
-                    cache.path.to_string_lossy().to_string(),
-                    false,
-                );
-                session
-                    .cache
-                    .enable(storage, None, None, Some(&*CACHE_LOCK), None);
-            }
+            stores::insert_cache_routing(&ctx.host, cache.path.to_string_lossy().to_string(), false);
+            session
+                .cache
+                .enable(storage, None, None, Some(&*CACHE_LOCK), None);
         }
 
         ctx.route_container = route_container.clone();
@@ -214,20 +210,18 @@ impl ProxyHttp for Router {
         }
 
         let cache_state = ctx.extensions.get("cache_state").cloned();
-        if session.cache.enabled() {
-            if let Some(cache_state) = cache_state {
-                // indicates whether it was HIT or MISS in the cache
-                upstream_response.insert_header(
-                    HeaderName::from_str("cache-status").unwrap(),
-                    cache_state.as_str(),
-                )?;
+        if session.cache.enabled() && let Some(cache_state) = cache_state {
+            // indicates whether it was HIT or MISS in the cache
+            upstream_response.insert_header(
+                HeaderName::from_str("cache-status").unwrap(),
+                cache_state.as_str(),
+            )?;
 
-                let elapsed = ctx.timings.request_filter_start.elapsed();
-                upstream_response.insert_header(
-                    HeaderName::from_str("cache-duration").unwrap(),
-                    elapsed.as_millis().to_string(),
-                )?;
-            }
+            let elapsed = ctx.timings.request_filter_start.elapsed();
+            upstream_response.insert_header(
+                HeaderName::from_str("cache-duration").unwrap(),
+                elapsed.as_millis().to_string(),
+            )?;
         }
 
         // Middleware phase: response_filterx
@@ -252,13 +246,13 @@ impl ProxyHttp for Router {
         let upstream = &ctx.upstream;
 
         // TODO: refactor
-        if let Some(headers) = upstream.headers.as_ref() {
-            if let Some(add) = headers.add.as_ref() {
-                for header_add in add {
-                    upstream_request
-                        .insert_header(header_add.name.to_string(), header_add.value.to_string())
-                        .ok();
-                }
+        if let Some(headers) = upstream.headers.as_ref()
+            && let Some(add) = headers.add.as_ref()
+        {
+            for header_add in add {
+                upstream_request
+                    .insert_header(header_add.name.to_string(), header_add.value.to_string())
+                    .ok();
             }
         }
 

@@ -1,3 +1,5 @@
+# Proksi UE: the unplugged edition
+
 # Getting started
 
 For a quick introduction, check the ASCII recording of a small configuration file for Proksi: https://asciinema.org/a/ORhG5Na2SHIBI8TH2mPPUHMVZ

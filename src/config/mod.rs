@@ -569,7 +569,7 @@ pub struct ServerCfg {
 /// ```
 ///
 #[derive(Debug, Serialize, Deserialize, Parser)]
-#[command(name = "Proksi")]
+#[command(name = "Proksi UE")]
 #[command(version, about, long_about = None)]
 pub(crate) struct Config {
     /// The name of the service (will appear as a log property)

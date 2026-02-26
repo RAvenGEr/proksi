@@ -4,7 +4,7 @@
 ![Crates.io License](https://img.shields.io/crates/l/proksi?style=for-the-badge)
 [![Crates.io Total Downloads](https://img.shields.io/crates/d/proksi?style=for-the-badge)](https://crates.io/crates/proksi)
 
-# Proksi: Automatic SSL, HTTP, and DNS Proxy
+# Proksi UE: the unplugged edition
 <a href="https://discord.gg/WsuV6QBW">
 <img src="./assets/discord.png" alt="discord-logo" width="200"/>
 </a>

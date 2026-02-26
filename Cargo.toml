@@ -1,8 +1,8 @@
 [package]
-name = "proksi"
-description = "A batteries-included reverse proxy with automatic HTTPS using Cloudflare Pingora and Let's Encrypt."
-version = "0.6.1"
-edition = "2021"
+name = "proksi-ue"
+description = "Proksi UE: the unplugged edition - a batteries-included reverse proxy with automatic HTTPS using Cloudflare Pingora and Let's Encrypt."
+version = "0.7.1"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 keywords = ["proxy", "https", "reverse-proxy", "load-balancer", "pingora"]
 categories = ["web-programming::http-server", "network-programming"]
@@ -37,7 +37,6 @@ async-trait = "0.1.89"
 capnp = "0.25.1"
 capnp-rpc = "0.25.0"
 bollard = "0.20.1"
-bollard-stubs = "1.52.1-rc"
 bytes = "1.11.1"
 clap = { version = "4.5.53", features = ["derive", "cargo"] }
 cookie = { version = "0.18.1", features = ["private"] }
@@ -46,7 +45,7 @@ figment = { version = "0.10.19", features = ["yaml", "env"] }
 hcl-rs = "0.19.4"
 http = "1.2.0"
 itertools = "0.14.0"
-jsonwebtoken = { version = "10.3.0", default-features = false }
+jsonwebtoken = { version = "10.3.0", default-features = false, features = ["rust_crypto"] }
 nix = { version = "0.31.1", features = ["signal"] }
 notify = { version = "8.0.0", default-features = false, features = [
 	"fsevent-sys",

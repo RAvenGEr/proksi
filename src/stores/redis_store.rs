@@ -41,10 +41,10 @@ impl RedisStore {
 
         let cert_data: Option<String> = conn.get(&key).ok()?;
 
-        if let Some(data) = cert_data {
-            if let Ok(serializable_cert) = serde_json::from_str::<SerializableCertificate>(&data) {
-                return Certificate::from_serializable(serializable_cert).ok();
-            }
+        if let Some(data) = cert_data
+            && let Ok(serializable_cert) = serde_json::from_str::<SerializableCertificate>(&data)
+        {
+            return Certificate::from_serializable(serializable_cert).ok();
         }
         None
     }
@@ -55,10 +55,10 @@ impl RedisStore {
 
         let challenge_data: Option<String> = conn.get(&key).ok()?;
 
-        if let Some(data) = challenge_data {
-            if let Ok(challenge) = serde_json::from_str::<(String, String)>(&data) {
-                return Some(challenge);
-            }
+        if let Some(data) = challenge_data
+            && let Ok(challenge) = serde_json::from_str::<(String, String)>(&data)
+        {
+            return Some(challenge);
         }
         None
     }
@@ -123,16 +123,14 @@ impl Store for RedisStore {
                         continue;
                     }
 
-                    if let Ok(cert_data) = conn_guard.get::<_, String>(&key) {
-                        if let Ok(serializable_cert) =
+                    if let Ok(cert_data) = conn_guard.get::<_, String>(&key)
+                        && let Ok(serializable_cert) =
                             serde_json::from_str::<SerializableCertificate>(&cert_data)
-                        {
-                            if let Ok(cert) = Certificate::from_serializable(serializable_cert) {
-                                TEMP_MAP.pin().insert(domain.clone(), cert.clone());
-                                // Update cache with newly found certificate
-                                self.cache.pin().insert(domain, cert);
-                            }
-                        }
+                        && let Ok(cert) = Certificate::from_serializable(serializable_cert)
+                    {
+                        TEMP_MAP.pin().insert(domain.clone(), cert.clone());
+                        // Update cache with newly found certificate
+                        self.cache.pin().insert(domain, cert);
                     }
                 }
             }
