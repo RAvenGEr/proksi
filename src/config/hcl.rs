@@ -5,7 +5,6 @@ use hcl::{
     Value,
 };
 
-#[allow(clippy::module_name_repetitions)]
 pub struct HclFormat;
 impl figment::providers::Format for HclFormat {
     type Error = hcl::Error;
@@ -25,7 +24,6 @@ impl figment::providers::Format for HclFormat {
 /// // HCL document
 /// worker_threads = num_cpus()
 /// ```
-#[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps)]
 fn num_cpus(_: FuncArgs) -> Result<Value, String> {
     let num_cpus = num_cpus::get();
     Ok(Value::Number(num_cpus.into()))
@@ -38,7 +36,6 @@ fn num_cpus(_: FuncArgs) -> Result<Value, String> {
 /// // HCL document
 /// config = import("config.toml")
 /// ```
-#[allow(clippy::needless_pass_by_value)]
 fn read_hcl_file(args: FuncArgs) -> Result<Value, String> {
     let path = Path::new(args[0].as_str().unwrap());
 
@@ -83,7 +80,6 @@ fn read_hcl_file(args: FuncArgs) -> Result<Value, String> {
 /// host = env("HOST")
 /// port = env("PORT")
 /// ```
-#[allow(clippy::needless_pass_by_value)]
 fn get_env_var(args: FuncArgs) -> Result<Value, String> {
     let key = args[0].as_str().unwrap();
     let Ok(var) = std::env::var(key) else {

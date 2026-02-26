@@ -169,7 +169,7 @@ impl LetsencryptService {
     }
 
     // Based on the letsencrypt configuration, return the appropriate URL
-    fn get_lets_encrypt_url(&self) -> DirectoryUrl {
+    fn get_lets_encrypt_url(&self) -> DirectoryUrl<'_> {
         match self.config.lets_encrypt.staging {
             Some(false) => DirectoryUrl::LetsEncrypt,
             _ => DirectoryUrl::LetsEncryptStaging,

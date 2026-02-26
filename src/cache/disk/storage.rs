@@ -37,13 +37,15 @@ impl DiskCache {
     }
 
     /// Retrieves the directory for the given key using the namespace as the base path
-    pub fn get_directory_for(&self, namespace: &str) -> PathBuf {
+    pub fn get_directory_for(&self, namespace: &[u8]) -> PathBuf {
+        let namespace = String::from_utf8_lossy(namespace);
+
         // If there's no cache routing, use the default directory
-        let Some(path) = stores::get_cache_routing_by_key(namespace) else {
-            return self.directory.join(namespace);
+        let Some(path) = stores::get_cache_routing_by_key(namespace.as_ref()) else {
+            return self.directory.join(namespace.as_ref());
         };
 
-        PathBuf::from(path).join(namespace)
+        PathBuf::from(path).join(namespace.as_ref())
     }
 
     async fn get_cached_metadata(&self, key: &CacheKey) -> Option<DiskCacheItemMetadata> {

@@ -18,7 +18,9 @@ use pingora::{upstreams::peer::HttpPeer, ErrorType::HTTPStatus};
 
 use pingora_cache::lock::CacheLock;
 
-use pingora_cache::{CacheKey, CacheMeta, ForcedInvalidationKind, NoCacheReason, RespCacheable};
+use pingora_cache::{
+    CacheKey, CacheMeta, ForcedFreshness, HitHandler, NoCacheReason, RespCacheable,
+};
 
 use crate::cache::disk::storage::DiskCache;
 use crate::config::{RouteCacheType, RouteUpstream};
@@ -122,8 +124,7 @@ impl ProxyHttp for Router {
             return Ok(true);
         }
 
-        if route_container.cache.is_some() {
-            let cache = route_container.cache.as_ref().unwrap();
+        if let Some(cache) = route_container.cache.as_ref() {
             if cache.enabled.unwrap_or(false) {
                 let storage = get_cache_storage(&cache.cache_type);
 
@@ -134,7 +135,7 @@ impl ProxyHttp for Router {
                 );
                 session
                     .cache
-                    .enable(storage, None, None, Some(&*CACHE_LOCK));
+                    .enable(storage, None, None, Some(&*CACHE_LOCK), None);
             }
         }
 
@@ -213,19 +214,20 @@ impl ProxyHttp for Router {
         }
 
         let cache_state = ctx.extensions.get("cache_state").cloned();
-        if session.cache.enabled() && cache_state.is_some() {
-            let cache_state = cache_state.unwrap();
-            // indicates whether it was HIT or MISS in the cache
-            upstream_response.insert_header(
-                HeaderName::from_str("cache-status").unwrap(),
-                cache_state.as_str(),
-            )?;
+        if session.cache.enabled() {
+            if let Some(cache_state) = cache_state {
+                // indicates whether it was HIT or MISS in the cache
+                upstream_response.insert_header(
+                    HeaderName::from_str("cache-status").unwrap(),
+                    cache_state.as_str(),
+                )?;
 
-            let elapsed = ctx.timings.request_filter_start.elapsed();
-            upstream_response.insert_header(
-                HeaderName::from_str("cache-duration").unwrap(),
-                elapsed.as_millis().to_string(),
-            )?;
+                let elapsed = ctx.timings.request_filter_start.elapsed();
+                upstream_response.insert_header(
+                    HeaderName::from_str("cache-duration").unwrap(),
+                    elapsed.as_millis().to_string(),
+                )?;
+            }
         }
 
         // Middleware phase: response_filterx
@@ -274,12 +276,12 @@ impl ProxyHttp for Router {
     /// Responses served from cache won't trigger this filter. If the cache needed revalidation,
     /// only the 304 from upstream will trigger the filter (though it will be merged into the
     /// cached header, not served directly to downstream).
-    fn upstream_response_filter(
+    async fn upstream_response_filter(
         &self,
         session: &mut Session,
         upstream_response: &mut ResponseHeader,
         ctx: &mut Self::CTX,
-    ) -> Result<(), Box<pingora::Error>> {
+    ) -> pingora::Result<()> {
         // If there's no host matching, returns a 404
         // let route_container = process_route(ctx);
 
@@ -391,15 +393,16 @@ impl ProxyHttp for Router {
     // flex purge, other filtering, returns whether asset is should be force expired or not
     async fn cache_hit_filter(
         &self,
-        _session: &Session,
+        _session: &mut Session,
         meta: &CacheMeta,
-        _enabled: bool,
+        _hit_handler: &mut HitHandler,
+        _is_fresh: bool,
         ctx: &mut Self::CTX,
-    ) -> pingora::Result<Option<ForcedInvalidationKind>> {
+    ) -> pingora::Result<Option<ForcedFreshness>> {
         if !meta.is_fresh(SystemTime::now()) {
             ctx.extensions
                 .insert(Cow::Borrowed("cache_state"), "expired".into());
-            return Ok(Some(ForcedInvalidationKind::ForceExpired));
+            return Ok(Some(ForcedFreshness::ForceExpired));
         }
 
         ctx.extensions

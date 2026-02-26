@@ -23,7 +23,6 @@ use crate::proxy_server::https_proxy::RouterContext;
 
 use super::MiddlewarePlugin;
 
-#[allow(clippy::all, clippy::pedantic, clippy::nursery)]
 pub mod external_auth_capnp {
     include!(concat!(env!("OUT_DIR"), "/external_auth_capnp.rs"));
 }

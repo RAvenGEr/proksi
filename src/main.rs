@@ -98,7 +98,7 @@ fn main() -> Result<(), anyhow::Error> {
             .with_ansi(proxy_config.logging.path.is_none())
             .with_writer(appender)
             .init();
-    };
+    }
 
     // Initialize global store based on configuration
     match proxy_config.store.store_type {
@@ -116,7 +116,7 @@ fn main() -> Result<(), anyhow::Error> {
             tracing::info!("using Redis store for certificates");
             init_store(redis_store);
         }
-    };
+    }
 
     // Pingora load balancer server
     let pingora_opts = Opt {

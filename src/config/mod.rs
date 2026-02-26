@@ -605,7 +605,6 @@ pub(crate) struct Config {
     /// and be present in that path. If no path is provided, a minimal default
     /// configuration will be used.
     #[clap(short, required = false, long)]
-    #[allow(clippy::struct_field_names)]
     pub config_path: Option<Cow<'static, str>>,
 
     /// General config
@@ -699,7 +698,7 @@ impl Provider for Config {
 /// Nested keys can be separated by double underscores (__) in the environment variables.
 /// E.g. `PROKSI__LOGGING__LEVEL=DEBUG` will set the `level` key in the
 /// `logging` key in the `proksi` key.
-pub fn load(fallback: &str) -> Result<Config, figment::Error> {
+pub fn load(fallback: &str) -> anyhow::Result<Config> {
     let parsed_commands = Config::parse();
 
     let path_with_fallback = match &parsed_commands.config_path {
@@ -715,7 +714,7 @@ pub fn load(fallback: &str) -> Result<Config, figment::Error> {
 
 /// Test-friendly version of load that doesn't parse command line arguments
 #[cfg(test)]
-pub(crate) fn load_for_test(fallback: &str) -> Result<Config, figment::Error> {
+pub(crate) fn load_for_test(fallback: &str) -> anyhow::Result<Config> {
     let default_config = Config::default();
 
     // For tests, always use the regular behavior (no minimal default)
@@ -737,7 +736,7 @@ pub(crate) fn load_from_path(
     config_path: &str,
     parsed_commands: &Config,
     use_minimal_default: bool,
-) -> Result<Config, figment::Error> {
+) -> anyhow::Result<Config> {
     let mut figment = Figment::new()
         .merge(Config::default())
         .merge(Serialized::defaults(parsed_commands));
@@ -803,7 +802,7 @@ pub(crate) fn load_from_path(
         .extract()?;
 
     // validate configuration and throw error upwards
-    validate::check_config(&config).map_err(|err| figment::Error::from(err.to_string()))?;
+    validate::check_config(&config)?;
 
     Ok(config)
 }

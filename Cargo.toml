@@ -3,26 +3,25 @@ name = "proksi"
 description = "A batteries-included reverse proxy with automatic HTTPS using Cloudflare Pingora and Let's Encrypt."
 version = "0.6.1"
 edition = "2021"
-rust-version = "1.85.0"
 license = "MIT OR Apache-2.0"
 keywords = ["proxy", "https", "reverse-proxy", "load-balancer", "pingora"]
 categories = ["web-programming::http-server", "network-programming"]
 exclude = [
-    "*.yaml",
-    "*.yml",
-    "*.toml",
-    "src/*.md",
-    "examples/",
-    "dist/",
-    "docs/",
-    "target/",
-    "tests/",
-    "assets/",
-    "tmp/",
-    "Makefile",
-    "Dockerfile",
-    "gitbook/",
-    ".github/",
+	"*.yaml",
+	"*.yml",
+	"*.toml",
+	"src/*.md",
+	"examples/",
+	"dist/",
+	"docs/",
+	"target/",
+	"tests/",
+	"assets/",
+	"tmp/",
+	"Makefile",
+	"Dockerfile",
+	"gitbook/",
+	".github/",
 ]
 authors = ["The Proksi Contributors <toaster.chicory-0b@icloud.com>"]
 readme = "README.md"
@@ -30,15 +29,15 @@ homepage = "https://github.com/luizfonseca/proksi"
 repository = "https://github.com/luizfonseca/proksi"
 
 [dependencies]
-TinyUFO = "0.6.0"
+TinyUFO = "0.7.0"
 acme-v2 = "0.9.3"
 anyhow = "1.0.99"
 arc-swap = "1.7.1"
 async-trait = "0.1.89"
 capnp = "0.25.1"
 capnp-rpc = "0.25.0"
-bollard = "0.16.1"
-bollard-stubs = "=1.44.0-rc.2"
+bollard = "0.20.1"
+bollard-stubs = "1.52.1-rc"
 bytes = "1.11.1"
 clap = { version = "4.5.53", features = ["derive", "cargo"] }
 cookie = { version = "0.18.1", features = ["private"] }
@@ -47,33 +46,33 @@ figment = { version = "0.10.19", features = ["yaml", "env"] }
 hcl-rs = "0.19.4"
 http = "1.2.0"
 itertools = "0.14.0"
-jsonwebtoken = { version = "9.3.1", default-features = false }
-nix = { version = "0.30.1", features = ["signal"] }
+jsonwebtoken = { version = "10.3.0", default-features = false }
+nix = { version = "0.31.1", features = ["signal"] }
 notify = { version = "8.0.0", default-features = false, features = [
-    "fsevent-sys",
+	"fsevent-sys",
 ] }
 num_cpus = "1.17.0"
 once_cell = "1.21.3"
 openssl = { version = "0.10", features = ["vendored"] }
 papaya = "0.2.3"
 path-tree = "0.8.3"
-pingora = { version = "0.5.0", features = ["lb", "openssl", "proxy", "cache"] }
-pingora-cache = "0.5.0"
-pingora-error = "0.6.0"
+pingora = { version = "0.7.0", features = ["lb", "openssl", "proxy", "cache"] }
+pingora-cache = "0.7.0"
+pingora-error = "0.7.0"
 prometheus = "0.14.0"
-reqwest = { version = "0.12.24", features = ["json"] }
+reqwest = { version = "0.13.2", features = ["json"] }
 seize = "0.5.1"
 serde = "1.0.228"
 serde_json = "1.0.145"
 short-crypt = "1.0.28"
-redis = { version = "0.32.7", features = ["r2d2"] }
+redis = { version = "1.0.4", features = ["r2d2"] }
 r2d2 = { version = "0.8.10" }
 time = "0.3.44"
 tokio = { version = "1.48.0", features = [
-    "sync",
-    "rt-multi-thread",
-    "fs",
-    "io-std",
+	"sync",
+	"rt-multi-thread",
+	"fs",
+	"io-std",
 ] }
 tokio-util = { version = "0.7.17", features = ["compat"] }
 tracing = "0.1.43"

@@ -113,6 +113,10 @@ impl HandleHit for DiskCacheHitHandler {
     fn as_any(&self) -> &(dyn Any + Send + Sync) {
         self
     }
+
+    fn as_any_mut(&mut self) -> &mut (dyn Any + Send + Sync) {
+        self
+    }
 }
 
 /// MISS handler for the cache
@@ -245,6 +249,10 @@ impl HandleHit for DiskCacheHitHandlerInMemory {
 
     /// Helper function to cast the trait object to concrete types
     fn as_any(&self) -> &(dyn Any + Send + Sync) {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut (dyn Any + Send + Sync) {
         self
     }
 }

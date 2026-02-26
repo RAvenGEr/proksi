@@ -60,7 +60,6 @@ pub struct ProxyLog {
 }
 
 impl ProxyLog {
-    #[allow(clippy::fn_params_excessive_bools)]
     pub fn new(
         sender: UnboundedSender<Vec<u8>>,
         log_enabled: bool,

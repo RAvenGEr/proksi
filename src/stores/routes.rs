@@ -85,9 +85,7 @@ impl RouteStoreContainer {
 pub type RouteStore = papaya::HashMap<String, RouteStoreContainer>;
 
 #[cfg(test)]
-
 mod tests {
-
     use super::*;
 
     #[test]

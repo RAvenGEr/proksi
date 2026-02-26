@@ -1,12 +1,13 @@
 use std::{
-    borrow::Cow, collections::HashMap, hash::Hash, net::SocketAddr, str::FromStr, sync::Arc,
+    borrow::Cow, collections::HashMap, net::SocketAddr, str::FromStr, sync::Arc,
     time::Duration,
 };
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bollard::{
-    container::ListContainersOptions, service::ListServicesOptions, Docker, API_DEFAULT_VERSION,
+    query_parameters::{ListContainersOptions, ListServicesOptions},
+    Docker, API_DEFAULT_VERSION,
 };
 use pingora::{
     server::{ListenFds, ShutdownWatch},
@@ -84,20 +85,16 @@ impl LabelService {
     /// Generate a list of services based on the provided filters
     /// This will returns a mapping between host <> ips for each service
     /// Only works for docker in Swarm mode.
-    #[allow(clippy::too_many_lines)]
-    async fn list_services<T>(
+    async fn list_services(
         &self,
-        filters: HashMap<T, Vec<T>>,
-    ) -> HashMap<String, ProksiDockerRoute>
-    where
-        T: Into<String> + Hash + serde::ser::Serialize + Eq,
-    {
+        filters: HashMap<String, Vec<String>>,
+    ) -> HashMap<String, ProksiDockerRoute> {
         let mut host_map = HashMap::<String, ProksiDockerRoute>::new();
         let services = self
             .inner
             .list_services(Some(ListServicesOptions {
-                filters,
-                status: true,
+                filters: Some(filters),
+                status: Some(true),
             }))
             .await;
 
@@ -237,10 +234,12 @@ impl LabelService {
                     });
                 }
 
-                if basic_auth_user.is_some() && basic_auth_password.is_some() {
+                if let (Some(basic_auth_user), Some(basic_auth_password)) =
+                    (&basic_auth_user, &basic_auth_password)
+                {
                     let mut map = HashMap::new();
-                    map.insert(Cow::Borrowed("user"), json!(basic_auth_user.unwrap()));
-                    map.insert(Cow::Borrowed("pass"), json!(basic_auth_password.unwrap()));
+                    map.insert(Cow::Borrowed("user"), json!(basic_auth_user));
+                    map.insert(Cow::Borrowed("pass"), json!(basic_auth_password));
 
                     plugins.push(RoutePlugin {
                         name: Cow::Borrowed("basic_auth"),
@@ -259,20 +258,17 @@ impl LabelService {
     /// Generate a list of containers based on the provided filters
     /// This will return a mapping between host <> ips for each container
     /// Does not work for docker in Swarm mode
-    async fn list_containers<T>(
+    async fn list_containers(
         &self,
-        filters: HashMap<T, Vec<T>>,
-    ) -> HashMap<String, ProksiDockerRoute>
-    where
-        T: Into<String> + Hash + serde::ser::Serialize + Eq,
-    {
+        filters: HashMap<String, Vec<String>>,
+    ) -> HashMap<String, ProksiDockerRoute> {
         let mut host_map = HashMap::<String, ProksiDockerRoute>::new();
         let containers = self
             .inner
             .list_containers(Some(ListContainersOptions {
                 all: false,
                 limit: Some(1000),
-                filters,
+                filters: Some(filters),
                 size: false,
             }))
             .await;
@@ -448,8 +444,12 @@ impl LabelService {
     async fn get_routes_from_docker(&self) -> HashMap<String, ProksiDockerRoute> {
         let mut filters = HashMap::new();
         filters.insert(
-            "label",
-            vec!["proksi.enabled=true", "proksi.host", "proksi.port"],
+            "label".to_string(),
+            vec![
+                "proksi.enabled=true".to_string(),
+                "proksi.host".to_string(),
+                "proksi.port".to_string(),
+            ],
         );
 
         match self.config.docker.mode {

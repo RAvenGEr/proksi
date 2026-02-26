@@ -64,11 +64,11 @@ impl GithubOauthService {
     ) -> Result<GithubTokenResponse, anyhow::Error> {
         let response = HTTP_CLIENT
             .post(GITHUB_OAUTH_TOKEN_URL)
-            .query(&[
-                ("client_id", client_id),
-                ("client_secret", client_secret),
-                ("code", code),
-            ])
+            .json(&serde_json::json!({
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": code
+            }))
             .header(http::header::ACCEPT, "application/json")
             .send()
             .await?;
