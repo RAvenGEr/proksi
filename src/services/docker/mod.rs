@@ -15,7 +15,7 @@ use pingora::{
 };
 use serde_json::json;
 use tokio::sync::broadcast::Sender;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 use crate::{
     config::{Config, DockerServiceMode, RouteHeaderAdd, RouteHeaderRemove, RouteMiddleware},
@@ -117,6 +117,20 @@ impl LabelService {
 
             let service_name = service_name.unwrap();
             let service_labels = service_spec.labels.as_ref().unwrap();
+            let legacy_plugin_keys = service_labels
+                .keys()
+                .filter(|key| key.starts_with("proksi.plugins."))
+                .cloned()
+                .collect::<Vec<_>>();
+            if !legacy_plugin_keys.is_empty() {
+                error!(
+                    service = service_name,
+                    service_id,
+                    ?legacy_plugin_keys,
+                    "unsupported legacy label namespace 'proksi.plugins.*' in this fork; use 'proksi.middleware.*'"
+                );
+                continue;
+            }
 
             let mut proxy_enabled = false;
             let mut proxy_host = "";
@@ -285,6 +299,19 @@ impl LabelService {
             let container_names = &container.names;
 
             let container_labels = container.labels.as_ref().unwrap();
+            let legacy_plugin_keys = container_labels
+                .keys()
+                .filter(|key| key.starts_with("proksi.plugins."))
+                .cloned()
+                .collect::<Vec<_>>();
+            if !legacy_plugin_keys.is_empty() {
+                error!(
+                    ?container_names,
+                    ?legacy_plugin_keys,
+                    "unsupported legacy label namespace 'proksi.plugins.*' in this fork; use 'proksi.middleware.*'"
+                );
+                continue;
+            }
 
             let mut proxy_enabled = false;
             let mut proxy_host = "";
