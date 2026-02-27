@@ -5,11 +5,11 @@ use async_trait::async_trait;
 
 use pingora::proxy::Session;
 
-use crate::{config::RoutePlugin, proxy_server::https_proxy::RouterContext};
+use crate::{config::RouteMiddleware, proxy_server::https_proxy::RouterContext};
 
-use super::MiddlewarePlugin;
+use super::Middleware;
 
-/// A plugin that adds a request ID to the request headers
+/// A middleware that adds a request ID to the request headers
 /// and response headers
 pub struct RequestId {}
 
@@ -20,12 +20,12 @@ impl RequestId {
 }
 
 #[async_trait]
-impl MiddlewarePlugin for RequestId {
+impl Middleware for RequestId {
     async fn request_filter(
         &self,
         _: &mut Session,
         ctx: &mut RouterContext,
-        _: &RoutePlugin,
+        _: &RouteMiddleware,
     ) -> Result<bool> {
         let request_id = uuid::Uuid::new_v4().to_string();
         ctx.extensions
@@ -62,7 +62,7 @@ impl MiddlewarePlugin for RequestId {
         &self,
         _: &mut Session,
         ctx: &mut RouterContext,
-        _: &RoutePlugin,
+        _: &RouteMiddleware,
     ) -> Result<bool> {
         ctx.extensions.clear();
 

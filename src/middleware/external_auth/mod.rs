@@ -18,10 +18,10 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::task::LocalSet;
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-use crate::config::RoutePlugin;
+use crate::config::RouteMiddleware;
 use crate::proxy_server::https_proxy::RouterContext;
 
-use super::MiddlewarePlugin;
+use super::Middleware;
 
 pub mod external_auth_capnp {
     include!(concat!(env!("OUT_DIR"), "/external_auth_capnp.rs"));
@@ -46,6 +46,7 @@ struct ExternalAuthConfig {
     header_allowlist: Option<HashSet<String>>,
 }
 
+#[derive(Clone)]
 struct AuthRequestPayload {
     method: String,
     host: String,
@@ -185,9 +186,9 @@ impl ExternalAuth {
         }
     }
 
-    fn get_or_start_worker(socket_path: &str) -> RpcWorkerHandle {
+    fn get_or_start_worker(socket_path: &str) -> Result<RpcWorkerHandle> {
         match RPC_WORKERS.entry(socket_path.to_string()) {
-            Entry::Occupied(entry) => entry.get().clone(),
+            Entry::Occupied(entry) => Ok(entry.get().clone()),
             Entry::Vacant(vacant) => {
                 let socket_path_owned = vacant.key().clone();
                 let (tx, rx) = mpsc::channel::<RpcJob>(RPC_WORKER_QUEUE);
@@ -209,9 +210,9 @@ impl ExternalAuth {
                             Self::rpc_worker_loop(socket_path_owned, rx).await;
                         });
                     })
-                    .expect("external_auth: failed to spawn rpc worker thread");
+                    .map_err(|e| anyhow!("external_auth: failed to spawn rpc worker thread: {e}"))?;
 
-                handle
+                Ok(handle)
             }
         }
     }
@@ -319,20 +320,43 @@ impl ExternalAuth {
         cfg: &ExternalAuthConfig,
         request: AuthRequestPayload,
     ) -> Result<AuthDecisionPayload> {
-        let worker = Self::get_or_start_worker(&cfg.socket_path);
-        let (tx, rx) = oneshot::channel();
-        worker
-            .tx
-            .send(RpcJob {
-                request,
-                timeout_ms: cfg.timeout_ms,
-                tx,
-            })
-            .await
-            .map_err(|_| anyhow!("external_auth rpc worker channel is closed"))?;
+        let mut retries = 1;
+        loop {
+            let worker = Self::get_or_start_worker(&cfg.socket_path)?;
+            let (tx, rx) = oneshot::channel();
+            worker
+                .tx
+                .send(RpcJob {
+                    request: request.clone(),
+                    timeout_ms: cfg.timeout_ms,
+                    tx,
+                })
+                .await
+                .map_err(|_| {
+                    tracing::warn!(
+                        "external_auth rpc worker channel closed, invalidating worker for {}",
+                        cfg.socket_path
+                    );
+                    RPC_WORKERS.remove(&cfg.socket_path);
+                    anyhow!("external_auth rpc worker channel is closed")
+                })?;
 
-        rx.await
-            .map_err(|_| anyhow!("external_auth rpc response channel closed"))?
+            match rx.await {
+                Ok(res) => return res,
+                Err(_) => {
+                    tracing::warn!(
+                        "external_auth rpc response channel closed, invalidating worker for {}",
+                        cfg.socket_path
+                    );
+                    RPC_WORKERS.remove(&cfg.socket_path);
+                    if retries > 0 {
+                        retries -= 1;
+                        continue;
+                    }
+                    return Err(anyhow!("external_auth rpc response channel closed"));
+                }
+            }
+        }
     }
 
     fn status_or_default(status: u16, fallback: StatusCode) -> StatusCode {
@@ -364,14 +388,14 @@ impl ExternalAuth {
 }
 
 #[async_trait]
-impl MiddlewarePlugin for ExternalAuth {
+impl Middleware for ExternalAuth {
     async fn request_filter(
         &self,
         session: &mut Session,
         ctx: &mut RouterContext,
-        plugin: &RoutePlugin,
+        middleware: &RouteMiddleware,
     ) -> Result<bool> {
-        let Some(config_map) = plugin.config.as_ref() else {
+        let Some(config_map) = middleware.config.as_ref() else {
             return Ok(false);
         };
 
@@ -461,7 +485,7 @@ impl MiddlewarePlugin for ExternalAuth {
         &self,
         _: &mut Session,
         _: &mut RouterContext,
-        _: &RoutePlugin,
+        _: &RouteMiddleware,
     ) -> Result<bool> {
         Ok(false)
     }

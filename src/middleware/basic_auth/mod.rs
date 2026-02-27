@@ -8,9 +8,9 @@ use pingora::{
     proxy::Session,
 };
 
-use crate::{config::RoutePlugin, proxy_server::https_proxy::RouterContext};
+use crate::{config::RouteMiddleware, proxy_server::https_proxy::RouterContext};
 
-use super::MiddlewarePlugin;
+use super::Middleware;
 
 pub struct BasicAuth;
 impl BasicAuth {
@@ -28,7 +28,7 @@ impl BasicAuth {
         Ok(Box::new(res_headers))
     }
 
-    /// Extracts the 'user' and 'pass' from the plugin configuration
+    /// Extracts the 'user' and 'pass' from the middleware configuration
     fn get_auth_config(
         config: &HashMap<Cow<'static, str>, serde_json::Value>,
     ) -> Option<(String, String)> {
@@ -47,19 +47,19 @@ impl BasicAuth {
 }
 
 #[async_trait]
-impl MiddlewarePlugin for BasicAuth {
+impl Middleware for BasicAuth {
     async fn request_filter(
         &self,
         session: &mut Session,
         ctx: &mut RouterContext,
-        plugin: &RoutePlugin,
+        middleware: &RouteMiddleware,
     ) -> anyhow::Result<bool> {
-        if plugin.config.is_none() {
-            // Nothing to do if the plugin configuration is not present
+        if middleware.config.is_none() {
+            // Nothing to do if the middleware configuration is not present
             return Ok(false);
         }
 
-        let config = plugin.config.as_ref().unwrap();
+        let config = middleware.config.as_ref().unwrap();
 
         let Some((user, pass)) = Self::get_auth_config(config) else {
             session
@@ -104,7 +104,7 @@ impl MiddlewarePlugin for BasicAuth {
         &self,
         _: &mut Session,
         _: &mut RouterContext,
-        _: &RoutePlugin,
+        _: &RouteMiddleware,
     ) -> anyhow::Result<bool> {
         Ok(false)
     }

@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use super::{HTTP_CLIENT, provider::OauthUser};
 
-/// Github `OAuth2` plugin
+/// Github `OAuth2` middleware
 pub(super) struct GithubOauthService;
 
 const GITHUB_API_URL: &str = "https://api.github.com";

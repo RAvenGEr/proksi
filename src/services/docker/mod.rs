@@ -18,7 +18,7 @@ use tokio::sync::broadcast::Sender;
 use tracing::{debug, info};
 
 use crate::{
-    config::{Config, DockerServiceMode, RouteHeaderAdd, RouteHeaderRemove, RoutePlugin},
+    config::{Config, DockerServiceMode, RouteHeaderAdd, RouteHeaderRemove, RouteMiddleware},
     MsgProxy, MsgRoute,
 };
 
@@ -42,7 +42,7 @@ pub struct ProksiDockerRoute {
     host_header_add: Option<Vec<RouteHeaderAdd>>,
     host_header_remove: Option<Vec<RouteHeaderRemove>>,
     ssl_certificate_self_signed_on_failure: bool,
-    plugins: Option<Vec<RoutePlugin>>,
+    middleware: Option<Vec<RouteMiddleware>>,
 }
 
 impl ProksiDockerRoute {
@@ -53,7 +53,7 @@ impl ProksiDockerRoute {
             host_header_add: None,
             host_header_remove: None,
             ssl_certificate_self_signed_on_failure: false,
-            plugins: None,
+            middleware: None,
         }
     }
 }
@@ -125,7 +125,7 @@ impl LabelService {
             let mut route_header_add: Option<Vec<RouteHeaderAdd>> = None;
             let mut route_header_remove: Option<Vec<RouteHeaderRemove>> = None;
 
-            // TEMP: Oauth2 plugin
+            // Oauth2 middleware
             let mut oauth2_provider: Option<String> = None;
             let mut oauth2_client_id: Option<String> = None;
             let mut oauth2_client_secret: Option<String> = None;
@@ -163,21 +163,21 @@ impl LabelService {
                         "proksi.ssl_certificate.self_signed_on_failure" => {
                             ssl_certificate_self_signed_on_failure = v == "true";
                         }
-                        "proksi.plugins.oauth2.provider" => oauth2_provider = Some(v.clone()),
-                        "proksi.plugins.oauth2.client_id" => oauth2_client_id = Some(v.clone()),
-                        "proksi.plugins.oauth2.client_secret" => {
+                        "proksi.middleware.oauth2.provider" => oauth2_provider = Some(v.clone()),
+                        "proksi.middleware.oauth2.client_id" => oauth2_client_id = Some(v.clone()),
+                        "proksi.middleware.oauth2.client_secret" => {
                             oauth2_client_secret = Some(v.clone());
                         }
-                        "proksi.plugins.oauth2.jwt_secret" => oauth2_jwt_secret = Some(v.clone()),
-                        "proksi.plugins.oauth2.validations" => {
+                        "proksi.middleware.oauth2.jwt_secret" => oauth2_jwt_secret = Some(v.clone()),
+                        "proksi.middleware.oauth2.validations" => {
                             oauth2_validations =
                                 Some(serde_json::from_str(v).unwrap_or_else(|_| json!([])));
                         }
-                        "proksi.plugins.request_id.enabled" => {
+                        "proksi.middleware.request_id.enabled" => {
                             docker_request_id = v == "true";
                         }
-                        "proksi.plugins.basic_auth.user" => basic_auth_user = Some(v.clone()),
-                        "proksi.plugins.basic_auth.password" => {
+                        "proksi.middleware.basic_auth.user" => basic_auth_user = Some(v.clone()),
+                        "proksi.middleware.basic_auth.password" => {
                             basic_auth_password = Some(v.clone());
                         }
 
@@ -216,19 +216,19 @@ impl LabelService {
                     ssl_certificate_self_signed_on_failure;
 
                 // This part is optional
-                let mut plugins: Vec<RoutePlugin> = vec![];
-                if let Some(plugin) = Self::get_oauth2_plugin(
+                let mut middleware: Vec<RouteMiddleware> = vec![];
+                if let Some(m) = Self::get_oauth2_middleware(
                     oauth2_provider,
                     oauth2_client_id,
                     oauth2_client_secret,
                     oauth2_jwt_secret,
                     oauth2_validations,
                 ) {
-                    plugins.push(plugin);
+                    middleware.push(m);
                 }
 
                 if docker_request_id {
-                    plugins.push(RoutePlugin {
+                    middleware.push(RouteMiddleware {
                         name: Cow::Borrowed("request_id"),
                         config: None,
                     });
@@ -241,13 +241,13 @@ impl LabelService {
                     map.insert(Cow::Borrowed("user"), json!(basic_auth_user));
                     map.insert(Cow::Borrowed("pass"), json!(basic_auth_password));
 
-                    plugins.push(RoutePlugin {
+                    middleware.push(RouteMiddleware {
                         name: Cow::Borrowed("basic_auth"),
                         config: Some(map),
                     });
                 }
 
-                routed.plugins = Some(plugins);
+                routed.middleware = Some(middleware);
                 host_map.insert(proxy_host.to_string(), routed);
             }
         }
@@ -378,14 +378,14 @@ impl LabelService {
         host_map
     }
 
-    // Parses the oauth2 configuration and returns a RoutePlugin
-    fn get_oauth2_plugin(
+    // Parses the oauth2 configuration and returns a RouteMiddleware
+    fn get_oauth2_middleware(
         provider: Option<String>,
         client_id: Option<String>,
         client_secret: Option<String>,
         jwt_secret: Option<String>,
         validations: Option<serde_json::Value>,
-    ) -> Option<RoutePlugin> {
+    ) -> Option<RouteMiddleware> {
         if provider.is_none()
             || client_id.is_none()
             || client_secret.is_none()
@@ -395,21 +395,21 @@ impl LabelService {
             return None;
         }
 
-        let mut plugin_hashmap = HashMap::new();
-        plugin_hashmap.insert(Cow::Borrowed("client_id"), json!(client_id.unwrap()));
+        let mut middleware_hashmap = HashMap::new();
+        middleware_hashmap.insert(Cow::Borrowed("client_id"), json!(client_id.unwrap()));
 
-        plugin_hashmap.insert(Cow::Borrowed("provider"), json!(provider.unwrap()));
+        middleware_hashmap.insert(Cow::Borrowed("provider"), json!(provider.unwrap()));
 
-        plugin_hashmap.insert(
+        middleware_hashmap.insert(
             Cow::Borrowed("client_secret"),
             json!(client_secret.unwrap()),
         );
-        plugin_hashmap.insert(Cow::Borrowed("jwt_secret"), json!(jwt_secret.unwrap()));
-        plugin_hashmap.insert(Cow::Borrowed("validations"), json!(validations.unwrap()));
+        middleware_hashmap.insert(Cow::Borrowed("jwt_secret"), json!(jwt_secret.unwrap()));
+        middleware_hashmap.insert(Cow::Borrowed("validations"), json!(validations.unwrap()));
 
-        Some(RoutePlugin {
+        Some(RouteMiddleware {
             name: Cow::Borrowed("oauth2"),
-            config: Some(plugin_hashmap),
+            config: Some(middleware_hashmap),
         })
     }
 
@@ -431,7 +431,7 @@ impl LabelService {
                     path_matchers: value.path_matchers,
                     host_headers_add: value.host_header_add.unwrap_or_else(Vec::new),
                     host_headers_remove: value.host_header_remove.unwrap_or_else(Vec::new),
-                    plugins: value.plugins.unwrap_or_else(Vec::new),
+                    middleware: value.middleware.unwrap_or_else(Vec::new),
 
                     self_signed_certs: value.ssl_certificate_self_signed_on_failure,
                 }))

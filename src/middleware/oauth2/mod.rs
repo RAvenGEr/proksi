@@ -11,9 +11,9 @@ use pingora::proxy::Session;
 
 use provider::{OauthType, OauthUser, Provider};
 
-use crate::{config::RoutePlugin, proxy_server::https_proxy::RouterContext};
+use crate::{config::RouteMiddleware, proxy_server::https_proxy::RouterContext};
 
-use super::{MiddlewarePlugin, get_required_config, jwt};
+use super::{Middleware, get_required_config, jwt};
 
 // New providers can be added here
 mod github;
@@ -38,8 +38,8 @@ fn get_current_timestamp() -> u64 {
         .as_secs()
 }
 
-/// The Oauth2 plugin
-/// This plugin is responsible for handling Oauth authentication and authorization
+/// The Oauth2 middleware
+/// This middleware is responsible for handling Oauth authentication and authorization
 /// It can be used to authenticate users against various Oauth providers
 /// and authorize them to access specific resources or perform certain actions
 /// based on their authorization level.
@@ -157,9 +157,9 @@ impl Oauth2 {
     }
 
     fn parse_provider(
-        plugin_config: &HashMap<Cow<'static, str>, serde_json::Value>,
+        middleware_config: &HashMap<Cow<'static, str>, serde_json::Value>,
     ) -> Result<OauthType> {
-        let provider = plugin_config
+        let provider = middleware_config
             .get("provider")
             .and_then(|v| v.as_str())
             .ok_or(anyhow!("Missing or invalid provider"))?;
@@ -167,13 +167,13 @@ impl Oauth2 {
         match provider {
             "github" => Ok(OauthType::Github),
             "workos" => Ok(OauthType::Workos),
-            _ => bail!("Provider not found in the plugin configuration"),
+            _ => bail!("Provider not found in the middleware configuration"),
         }
     }
 }
 
 #[async_trait]
-impl MiddlewarePlugin for Oauth2 {
+impl Middleware for Oauth2 {
     async fn upstream_request_filter(
         &self,
         _: &mut Session,
@@ -201,21 +201,21 @@ impl MiddlewarePlugin for Oauth2 {
         &self,
         session: &mut Session,
         ctx: &mut RouterContext,
-        plugin: &RoutePlugin,
+        middleware: &RouteMiddleware,
     ) -> Result<bool> {
-        // Nothing to do if the plugin configuration is not present
-        if plugin.config.is_none() {
+        // Nothing to do if the middleware configuration is not present
+        if middleware.config.is_none() {
             return Ok(false);
         }
 
-        let plugin_config = plugin.config.as_ref().unwrap();
+        let middleware_config = middleware.config.as_ref().unwrap();
 
-        let provider = Self::parse_provider(plugin_config)?;
+        let provider = Self::parse_provider(middleware_config)?;
 
-        let client_id = get_required_config(plugin_config, "client_id")?;
-        let client_secret = get_required_config(plugin_config, "client_secret")?;
-        let jwt_secret = get_required_config(plugin_config, "jwt_secret")?;
-        let validations = plugin_config.get("validations");
+        let client_id = get_required_config(middleware_config, "client_id")?;
+        let client_secret = get_required_config(middleware_config, "client_secret")?;
+        let jwt_secret = get_required_config(middleware_config, "jwt_secret")?;
+        let validations = middleware_config.get("validations");
 
         // Callback path based on the selected provider
         let callback_path = format!("/__/oauth/{}/callback", &provider);
@@ -320,7 +320,7 @@ impl MiddlewarePlugin for Oauth2 {
         &self,
         _: &mut Session,
         _: &mut RouterContext,
-        _: &RoutePlugin,
+        _: &RouteMiddleware,
     ) -> Result<bool> {
         Ok(false)
     }

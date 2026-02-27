@@ -1,6 +1,6 @@
 use cookie::{Cookie, SameSite, time::OffsetDateTime};
 
-use crate::plugins::jwt;
+use crate::middleware::jwt;
 
 use super::{COOKIE_NAME, provider::OauthUser};
 

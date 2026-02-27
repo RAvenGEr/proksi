@@ -28,8 +28,8 @@ use crate::stores::{self, routes::RouteStoreContainer};
 
 use super::default_peer_opts;
 use super::middleware::{
-    execute_request_plugins, execute_response_plugins, execute_upstream_request_plugins,
-    execute_upstream_response_plugins,
+    execute_request_middleware, execute_response_middleware, execute_upstream_request_middleware,
+    execute_upstream_response_middleware,
 };
 
 static STORAGE_MEM_CACHE: Lazy<pingora_cache::MemCache> = Lazy::new(pingora_cache::MemCache::new);
@@ -117,10 +117,11 @@ impl ProxyHttp for Router {
             _ => {}
         }
 
-        // Middleware phase: request_filterx
+        // Middleware phase: request_filter
         // We are checking to see if the request has already been handled
-        // by the plugins i.e. (ok(true))
-        if let Ok(true) = execute_request_plugins(session, ctx, &route_container.plugins).await {
+        // by the middleware i.e. (ok(true))
+        if let Ok(true) = execute_request_middleware(session, ctx, &route_container.middleware).await
+        {
             return Ok(true);
         }
 
@@ -224,8 +225,8 @@ impl ProxyHttp for Router {
             )?;
         }
 
-        // Middleware phase: response_filterx
-        execute_response_plugins(session, ctx).await?;
+        // Middleware phase: response_filter
+        execute_response_middleware(session, ctx).await?;
 
         Ok(())
     }
@@ -256,7 +257,7 @@ impl ProxyHttp for Router {
             }
         }
 
-        execute_upstream_request_plugins(session, upstream_request, ctx)
+        execute_upstream_request_middleware(session, upstream_request, ctx)
             .await
             .ok();
 
@@ -279,7 +280,7 @@ impl ProxyHttp for Router {
         // If there's no host matching, returns a 404
         // let route_container = process_route(ctx);
 
-        execute_upstream_response_plugins(session, upstream_response, ctx);
+        execute_upstream_response_middleware(session, upstream_response, ctx);
 
         Ok(())
     }

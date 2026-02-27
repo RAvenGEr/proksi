@@ -10,7 +10,7 @@ use pingora::http::{RequestHeader, ResponseHeader};
 use pingora::proxy::Session;
 use request_id::RequestId;
 
-use crate::{config::RoutePlugin, proxy_server::https_proxy::RouterContext};
+use crate::{config::RouteMiddleware, proxy_server::https_proxy::RouterContext};
 
 pub mod basic_auth;
 pub mod external_auth;
@@ -18,27 +18,27 @@ pub mod jwt;
 pub mod oauth2;
 pub mod request_id;
 
-pub(crate) struct ProxyPlugins {
+pub(crate) struct ProxyMiddleware {
     pub basic_auth: Lazy<BasicAuth>,
     pub external_auth: Lazy<ExternalAuth>,
     pub oauth2: Lazy<Oauth2>,
     pub request_id: Lazy<RequestId>,
 }
 
-/// Static plugin registry (plugins that don't generate a new instance for each request)
-pub static PLUGINS: Lazy<ProxyPlugins> = Lazy::new(|| ProxyPlugins {
+/// Static middleware registry (middleware that don't generate a new instance for each request)
+pub static MIDDLEWARE: Lazy<ProxyMiddleware> = Lazy::new(|| ProxyMiddleware {
     basic_auth: Lazy::new(BasicAuth::new),
     external_auth: Lazy::new(ExternalAuth::new),
     oauth2: Lazy::new(Oauth2::new),
     request_id: Lazy::new(RequestId::new),
 });
 
-/// Get a required configuration value from a plugin config
+/// Get a required configuration value from a middleware config
 fn get_required_config(
-    plugin_config: &HashMap<Cow<'static, str>, serde_json::Value>,
+    middleware_config: &HashMap<Cow<'static, str>, serde_json::Value>,
     key: &str,
 ) -> Result<String> {
-    plugin_config
+    middleware_config
         .get(key)
         .and_then(|v| v.as_str())
         .map(ToString::to_string)
@@ -46,7 +46,7 @@ fn get_required_config(
 }
 
 #[async_trait]
-pub trait MiddlewarePlugin {
+pub trait Middleware {
     /// Create a new state for the middleware
     /// Filter requests based on the middleware's logic
     /// Return false if the request should be allowed to pass through and was not handled
@@ -55,7 +55,7 @@ pub trait MiddlewarePlugin {
         &self,
         session: &mut Session,
         state: &mut RouterContext,
-        config: &RoutePlugin,
+        config: &RouteMiddleware,
     ) -> Result<bool>;
 
     /// Modify the request before it is sent to the upstream
@@ -76,7 +76,7 @@ pub trait MiddlewarePlugin {
         &self,
         session: &mut Session,
         state: &mut RouterContext,
-        config: &RoutePlugin,
+        config: &RouteMiddleware,
     ) -> Result<bool>;
 
     fn upstream_response_filter(

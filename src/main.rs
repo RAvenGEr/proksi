@@ -2,7 +2,7 @@ use ::pingora::server::Server;
 
 use bytes::Bytes;
 use clap::crate_version;
-use config::{load, LogFormat, RouteHeaderAdd, RouteHeaderRemove, RoutePlugin};
+use config::{load, LogFormat, RouteHeaderAdd, RouteHeaderRemove, RouteMiddleware};
 use stores::{global::init_store, MemoryStore};
 use tracing_subscriber::EnvFilter;
 
@@ -16,14 +16,14 @@ use services::{logger::ProxyLoggerReceiver, BackgroundFunctionService};
 mod cache;
 mod channel;
 mod config;
-mod plugins;
+mod middleware;
 mod proxy_server;
 mod server;
 mod services;
 mod stores;
 mod tools;
 
-pub(crate) use plugins::external_auth::external_auth_capnp;
+pub(crate) use middleware::external_auth::external_auth_capnp;
 
 #[derive(Clone, Default)]
 pub struct MsgRoute {
@@ -32,7 +32,7 @@ pub struct MsgRoute {
     path_matchers: Vec<String>,
     host_headers_add: Vec<RouteHeaderAdd>,
     host_headers_remove: Vec<RouteHeaderRemove>,
-    plugins: Vec<RoutePlugin>,
+    middleware: Vec<RouteMiddleware>,
 
     self_signed_certs: bool,
 }

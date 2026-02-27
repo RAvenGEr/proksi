@@ -18,7 +18,7 @@ pub(super) fn from_string_to_query_params(value: &str) -> HashMap<Cow<'_, str>, 
 }
 
 /// Given a resulting user from `Oauth2`, validates if the user is authorized
-/// based on the validations provided in the configuration of the plugin
+/// based on the validations provided in the configuration of the middleware
 pub(super) fn validate_user_from_provider(
     user: &OauthUser,
     validations: Option<&serde_json::Value>,

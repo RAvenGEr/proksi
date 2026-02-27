@@ -3,7 +3,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use crate::plugins::jwt::JwtClaims;
+use crate::middleware::jwt::JwtClaims;
 
 use super::{github::GithubOauthService, workos::WorkosOauthService};
 

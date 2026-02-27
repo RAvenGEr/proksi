@@ -245,12 +245,12 @@ pub struct RouteMatcher {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RoutePlugin {
-    /// The name of the plugin (must be a valid plugin name)
+pub struct RouteMiddleware {
+    /// The name of the middleware (must be a valid middleware name)
     pub name: Cow<'static, str>,
 
-    /// The configuration for the plugin - we are not enforcing a specific format.
-    /// Each plugin is in charge of parsing the configuration.
+    /// The configuration for the middleware - we are not enforcing a specific format.
+    /// Each middleware is in charge of parsing the configuration.
     /// The configuration is a key-value pair where the key is a string and
     /// the value is a JSON object (ex: `{ "key": "value" }`)
     pub config: Option<HashMap<Cow<'static, str>, serde_json::Value>>,
@@ -355,9 +355,10 @@ pub struct Route {
 
     pub cache: Option<RouteCache>,
 
-    /// Plugins that will be applied to the route/host
+    /// Middleware that will be applied to the route/host
     /// (ex: rate limiting, oauth2, etc.)
-    pub plugins: Option<Vec<RoutePlugin>>,
+    #[serde(alias = "plugins")]
+    pub middleware: Option<Vec<RouteMiddleware>>,
 
     /// SSL certificate configurations for the given host
     /// (ex: self-signed, path/object storage, etc.)
@@ -979,7 +980,7 @@ mod tests {
           lets_encrypt: "/test/letsencrypt"
         routes:
           - host: "example.com"
-            plugins:
+            middleware:
               - name: "cors"
                 config:
                   allowed_origins: ["*"]
@@ -1169,7 +1170,7 @@ mod tests {
                 r#"[{
               host="changed.example.com",
               match_with={ path={ patterns=["/api/v1/:entity/:action*"] } },
-              plugins=[{ name="cors", config={ allowed_origins=["*"] } }],
+              middleware=[{ name="cors", config={ allowed_origins=["*"] } }],
               upstreams=[{ ip="10.0.1.2/24", port=3000, weight=1 }] }]
             "#,
             );
@@ -1244,7 +1245,7 @@ mod tests {
                     upstreams:
                       - ip: "10.1.2.24/24"
                         port: 3000
-                    plugins:
+                    middleware:
                       - name: "cors"
                         config:
                           allowed_origins: ["*"]
@@ -1281,10 +1282,10 @@ mod tests {
             assert_eq!(paths.lets_encrypt.as_os_str(), "/etc/proksi/letsencrypt");
 
             let route = &proxy_config.routes[0];
-            let plugins = route.plugins.as_ref().unwrap();
-            let plugin_config = plugins[0].config.as_ref().unwrap();
-            assert_eq!(plugins[0].name, "cors");
-            assert_eq!(plugin_config.get("allowed_origins"), Some(&json!(["*"])));
+            let middleware = route.middleware.as_ref().unwrap();
+            let middleware_config = middleware[0].config.as_ref().unwrap();
+            assert_eq!(middleware[0].name, "cors");
+            assert_eq!(middleware_config.get("allowed_origins"), Some(&json!(["*"])));
 
             let ssl = route.ssl.as_ref().unwrap();
             let path = ssl.path.as_ref().unwrap();

@@ -18,7 +18,7 @@ use crate::MsgRoute;
 use crate::config::{Route, RouteCache, RouteUpstream};
 use crate::{
     MsgProxy,
-    config::{Config, RouteHeader, RouteMatcher, RoutePathMatcher, RoutePlugin},
+    config::{Config, RouteHeader, RouteMatcher, RoutePathMatcher, RouteMiddleware},
     stores::{self, routes::RouteStoreContainer},
 };
 
@@ -53,7 +53,7 @@ impl RoutingService {
                 route.upstreams.clone(),
                 route.match_with.clone(),
                 route.headers.as_ref(),
-                route.plugins.as_ref(),
+                route.middleware.as_ref(),
                 route.cache.as_ref(),
                 self_signed_cert_on_failure.unwrap_or(false),
             );
@@ -107,7 +107,7 @@ impl RoutingService {
             upstreams,
             matcher,
             Some(&route_header),
-            Some(&route.plugins),
+            Some(&route.middleware),
             None,
             route.self_signed_certs,
         );
@@ -172,7 +172,7 @@ fn add_route_to_router(
     upstream_input: Vec<RouteUpstream>,
     match_with: Option<RouteMatcher>,
     headers: Option<&RouteHeader>,
-    plugins: Option<&Vec<RoutePlugin>>,
+    middleware: Option<&Vec<RouteMiddleware>>,
     cache: Option<&RouteCache>,
     should_self_sign_cert_on_failure: bool,
 ) {
@@ -226,13 +226,13 @@ fn add_route_to_router(
         }
     }
 
-    if let Some(plugins) = plugins {
-        for plugin in plugins {
-            match plugin.name.as_ref() {
+    if let Some(middleware) = middleware {
+        for m in middleware {
+            match m.name.as_ref() {
                 "oauth2" | "request_id" | "basic_auth" | "external_auth" => {
                     route_store_container
-                        .plugins
-                        .insert(plugin.name.to_string(), plugin.clone());
+                        .middleware
+                        .insert(m.name.to_string(), m.clone());
                 }
 
                 _ => {}
@@ -360,7 +360,7 @@ mod test {
 //         let upstreams = vec!["127.0.0.1:8080".to_string()];
 //         let matcher = None;
 //         let headers = None;
-//         let plugins = None;
+//         let middleware = None;
 //         let should_self_sign_cert_on_failure = false;
 
 //         add_route_to_router(
@@ -369,7 +369,7 @@ mod test {
 //             &upstreams,
 //             matcher,
 //             headers,
-//             plugins,
+//             middleware,
 //             should_self_sign_cert_on_failure,
 //         );
 
@@ -383,7 +383,7 @@ mod test {
 //         let upstreams = vec!["127.0.0.1:8080".to_string()];
 //         let matcher = None;
 //         let headers = None;
-//         let plugins = None;
+//         let middleware = None;
 //         let should_self_sign_cert_on_failure = false;
 
 //         add_route_to_router(
@@ -392,7 +392,7 @@ mod test {
 //             &upstreams,
 //             matcher,
 //             headers,
-//             plugins,
+//             middleware,
 //             should_self_sign_cert_on_failure,
 //         );
 
@@ -429,7 +429,7 @@ mod test {
 //         let upstreams = vec!["127.0.0.3:8080".to_string()];
 //         let matcher = None;
 //         let headers = None;
-//         let plugins = None;
+//         let middleware = None;
 //         let should_self_sign_cert_on_failure = false;
 
 //         add_route_to_router(
@@ -438,7 +438,7 @@ mod test {
 //             &upstreams,
 //             matcher,
 //             headers,
-//             plugins,
+//             middleware,
 //             should_self_sign_cert_on_failure,
 //         );
 

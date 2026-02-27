@@ -2,19 +2,19 @@ use std::collections::HashMap;
 
 use pingora::Result;
 
-use crate::plugins::MiddlewarePlugin;
+use crate::middleware::Middleware;
 
-/// Executes the request and response plugins
-pub async fn execute_response_plugins(
+/// Executes the request and response middleware
+pub async fn execute_response_middleware(
     session: &mut pingora::proxy::Session,
     ctx: &mut crate::proxy_server::https_proxy::RouterContext,
 ) -> Result<()> {
-    for (name, value) in ctx.route_container.plugins.clone() {
+    for (name, value) in ctx.route_container.middleware.clone() {
         match name.as_str() {
             "oauth2" => {
-                use crate::plugins::MiddlewarePlugin;
+                use crate::middleware::Middleware;
 
-                if crate::plugins::PLUGINS
+                if crate::middleware::MIDDLEWARE
                     .oauth2
                     .response_filter(session, ctx, &value)
                     .await
@@ -30,17 +30,17 @@ pub async fn execute_response_plugins(
     Ok(())
 }
 
-/// Executes the request plugins
-pub async fn execute_request_plugins(
+/// Executes the request middleware
+pub async fn execute_request_middleware(
     session: &mut pingora::proxy::Session,
     ctx: &mut crate::proxy_server::https_proxy::RouterContext,
-    plugins: &HashMap<String, crate::config::RoutePlugin>,
+    middleware: &HashMap<String, crate::config::RouteMiddleware>,
 ) -> Result<bool> {
-    use crate::plugins::MiddlewarePlugin;
-    for (name, value) in plugins {
+    use crate::middleware::Middleware;
+    for (name, value) in middleware {
         match name.as_str() {
             "oauth2" => {
-                if crate::plugins::PLUGINS
+                if crate::middleware::MIDDLEWARE
                     .oauth2
                     .request_filter(session, ctx, value)
                     .await
@@ -50,14 +50,14 @@ pub async fn execute_request_plugins(
                 }
             }
             "request_id" => {
-                crate::plugins::PLUGINS
+                crate::middleware::MIDDLEWARE
                     .request_id
                     .request_filter(session, ctx, value)
                     .await
                     .ok();
             }
             "basic_auth" => {
-                if crate::plugins::PLUGINS
+                if crate::middleware::MIDDLEWARE
                     .basic_auth
                     .request_filter(session, ctx, value)
                     .await
@@ -67,7 +67,7 @@ pub async fn execute_request_plugins(
                 }
             }
             "external_auth" => {
-                if crate::plugins::PLUGINS
+                if crate::middleware::MIDDLEWARE
                     .external_auth
                     .request_filter(session, ctx, value)
                     .await
@@ -82,23 +82,23 @@ pub async fn execute_request_plugins(
     Ok(false)
 }
 
-/// Executes the upstream request plugins
-pub async fn execute_upstream_request_plugins(
+/// Executes the upstream request middleware
+pub async fn execute_upstream_request_middleware(
     session: &mut pingora::proxy::Session,
     upstream_request: &mut pingora::http::RequestHeader,
     ctx: &mut crate::proxy_server::https_proxy::RouterContext,
 ) -> Result<()> {
-    for name in ctx.route_container.plugins.clone().keys() {
+    for name in ctx.route_container.middleware.clone().keys() {
         match name.as_str() {
             "request_id" => {
-                crate::plugins::PLUGINS
+                crate::middleware::MIDDLEWARE
                     .request_id
                     .upstream_request_filter(session, upstream_request, ctx)
                     .await
                     .ok();
             }
             "external_auth" => {
-                crate::plugins::PLUGINS
+                crate::middleware::MIDDLEWARE
                     .external_auth
                     .upstream_request_filter(session, upstream_request, ctx)
                     .await
@@ -111,16 +111,16 @@ pub async fn execute_upstream_request_plugins(
     Ok(())
 }
 
-/// Executes the upstream response plugins
-pub fn execute_upstream_response_plugins(
+/// Executes the upstream response middleware
+pub fn execute_upstream_response_middleware(
     session: &mut pingora::proxy::Session,
     upstream_response: &mut pingora::http::ResponseHeader,
     ctx: &mut crate::proxy_server::https_proxy::RouterContext,
 ) {
-    for name in ctx.route_container.plugins.clone().keys() {
+    for name in ctx.route_container.middleware.clone().keys() {
         match name.as_str() {
             "request_id" => {
-                crate::plugins::PLUGINS
+                crate::middleware::MIDDLEWARE
                     .request_id
                     .upstream_response_filter(session, upstream_response, ctx)
                     .ok();
