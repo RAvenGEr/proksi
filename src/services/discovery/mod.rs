@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::net::ToSocketAddrs;
 use std::{borrow::Cow, str::FromStr, sync::Arc, time::Duration};
 
@@ -227,12 +228,20 @@ fn add_route_to_router(
     }
 
     if let Some(middleware) = middleware {
+        let mut seen = HashSet::new();
         for m in middleware {
             match m.name.as_ref() {
                 "oauth2" | "request_id" | "basic_auth" | "external_auth" => {
-                    route_store_container
-                        .middleware
-                        .insert(m.name.to_string(), m.clone());
+                    if !seen.insert(m.name.as_ref()) {
+                        tracing::warn!(
+                            "Skipping duplicate middleware '{}' for host '{}'",
+                            m.name,
+                            host
+                        );
+                        continue;
+                    }
+
+                    route_store_container.middleware.push(m.clone());
                 }
 
                 _ => {}

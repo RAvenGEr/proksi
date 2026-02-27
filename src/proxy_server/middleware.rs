@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use pingora::Result;
 
 use crate::middleware::Middleware;
@@ -9,14 +7,15 @@ pub async fn execute_response_middleware(
     session: &mut pingora::proxy::Session,
     ctx: &mut crate::proxy_server::https_proxy::RouterContext,
 ) -> Result<()> {
-    for (name, value) in ctx.route_container.middleware.clone() {
-        match name.as_str() {
+    let middleware = ctx.route_container.middleware.clone();
+    for m in &middleware {
+        match m.name.as_ref() {
             "oauth2" => {
                 use crate::middleware::Middleware;
 
                 if crate::middleware::MIDDLEWARE
                     .oauth2
-                    .response_filter(session, ctx, &value)
+                    .response_filter(session, ctx, m)
                     .await
                     .is_ok_and(|v| v)
                 {
@@ -34,15 +33,15 @@ pub async fn execute_response_middleware(
 pub async fn execute_request_middleware(
     session: &mut pingora::proxy::Session,
     ctx: &mut crate::proxy_server::https_proxy::RouterContext,
-    middleware: &HashMap<String, crate::config::RouteMiddleware>,
+    middleware: &[crate::config::RouteMiddleware],
 ) -> Result<bool> {
     use crate::middleware::Middleware;
-    for (name, value) in middleware {
-        match name.as_str() {
+    for m in middleware {
+        match m.name.as_ref() {
             "oauth2" => {
                 if crate::middleware::MIDDLEWARE
                     .oauth2
-                    .request_filter(session, ctx, value)
+                    .request_filter(session, ctx, m)
                     .await
                     .is_ok_and(|v| v)
                 {
@@ -52,14 +51,14 @@ pub async fn execute_request_middleware(
             "request_id" => {
                 crate::middleware::MIDDLEWARE
                     .request_id
-                    .request_filter(session, ctx, value)
+                    .request_filter(session, ctx, m)
                     .await
                     .ok();
             }
             "basic_auth" => {
                 if crate::middleware::MIDDLEWARE
                     .basic_auth
-                    .request_filter(session, ctx, value)
+                    .request_filter(session, ctx, m)
                     .await
                     .is_ok_and(|v| v)
                 {
@@ -69,7 +68,7 @@ pub async fn execute_request_middleware(
             "external_auth" => {
                 if crate::middleware::MIDDLEWARE
                     .external_auth
-                    .request_filter(session, ctx, value)
+                    .request_filter(session, ctx, m)
                     .await
                     .is_ok_and(|v| v)
                 {
@@ -88,8 +87,9 @@ pub async fn execute_upstream_request_middleware(
     upstream_request: &mut pingora::http::RequestHeader,
     ctx: &mut crate::proxy_server::https_proxy::RouterContext,
 ) -> Result<()> {
-    for name in ctx.route_container.middleware.clone().keys() {
-        match name.as_str() {
+    let middleware = ctx.route_container.middleware.clone();
+    for m in &middleware {
+        match m.name.as_ref() {
             "request_id" => {
                 crate::middleware::MIDDLEWARE
                     .request_id
@@ -117,8 +117,9 @@ pub fn execute_upstream_response_middleware(
     upstream_response: &mut pingora::http::ResponseHeader,
     ctx: &mut crate::proxy_server::https_proxy::RouterContext,
 ) {
-    for name in ctx.route_container.middleware.clone().keys() {
-        match name.as_str() {
+    let middleware = ctx.route_container.middleware.clone();
+    for m in &middleware {
+        match m.name.as_ref() {
             "request_id" => {
                 crate::middleware::MIDDLEWARE
                     .request_id
