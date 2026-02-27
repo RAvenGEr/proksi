@@ -378,11 +378,17 @@ impl ExternalAuth {
         location: &str,
     ) -> Result<bool> {
         let status = Self::status_or_default(status, StatusCode::TEMPORARY_REDIRECT);
-        let mut response = ResponseHeader::build_no_case(status, Some(1))?;
+        // RFC 9110 recommends sending a short representation for redirects.
+        let body = bytes::Bytes::from(format!("Redirecting to {location}\n"));
+        let mut response = ResponseHeader::build_no_case(status, Some(2))?;
         response.insert_header(http::header::LOCATION, location)?;
+        response.insert_header(http::header::CONTENT_TYPE, "text/plain; charset=utf-8")?;
+        response.insert_header(http::header::CONTENT_LENGTH, body.len())?;
+
         session
-            .write_response_header(Box::new(response), true)
+            .write_response_header(Box::new(response), false)
             .await?;
+        session.write_response_body(Some(body), true).await?;
         Ok(true)
     }
 }
