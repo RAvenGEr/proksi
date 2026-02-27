@@ -209,6 +209,9 @@ pub struct RouteUpstream {
     pub sni: Option<String>,
 
     pub headers: Option<RouteHeader>,
+
+    #[serde(default)]
+    pub forwarded_headers: bool,
 }
 
 impl Default for RouteUpstream {
@@ -220,6 +223,7 @@ impl Default for RouteUpstream {
             weight: None,
             sni: None,
             headers: None,
+            forwarded_headers: false,
         }
     }
 }

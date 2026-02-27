@@ -241,18 +241,60 @@ impl ProxyHttp for Router {
         upstream_request: &mut RequestHeader,
         ctx: &mut Self::CTX,
     ) -> pingora::Result<()> {
-        // If there's no host matching, returns a 404
-        // let route_container = &ctx.route_container;
-
         let upstream = &ctx.upstream;
 
-        // TODO: refactor
+        let client_ip = session
+            .client_addr()
+            .map(|addr| {
+                let s = addr.to_string();
+                if s.starts_with('[') && let Some(end) = s.find(']') {
+                    return s[1..end].to_string();
+                }
+                s.split(':').next().unwrap_or(&s).to_string()
+            })
+            .unwrap_or_default();
+
+        // Standard Nginx-style variables expansion
+        let expand_variable = |val: &str, req: &RequestHeader| -> String {
+            match val {
+                "$remote_addr" => client_ip.clone(),
+                "$host" => session.get_header("host").map(|v| v.to_str().unwrap_or_default().to_string()).unwrap_or_default(),
+                "$scheme" => session.req_header().uri.scheme_str().unwrap_or("https").to_string(),
+                "$proxy_add_x_forwarded_for" => {
+                    match req.headers.get("X-Forwarded-For") {
+                        Some(v) => {
+                            let prev = v.to_str().unwrap_or_default();
+                            if prev.is_empty() {
+                                client_ip.clone()
+                            } else {
+                                format!("{}, {}", prev, client_ip)
+                            }
+                        }
+                        None => client_ip.clone(),
+                    }
+                }
+                _ => val.to_string(),
+            }
+        };
+
+        // If enabled, add standard headers first (can be overridden by manual config below)
+        if upstream.forwarded_headers {
+            upstream_request.insert_header("X-Forwarded-For", expand_variable("$proxy_add_x_forwarded_for", upstream_request)).ok();
+            upstream_request.insert_header("X-Real-IP", client_ip.clone()).ok();
+            upstream_request.insert_header("X-Forwarded-Proto", "https").ok();
+            if let Some(host) = session.get_header("host") {
+                upstream_request.insert_header("X-Forwarded-Host", host).ok();
+            }
+        }
+
+        // Apply manual header overrides and expand variables in values
         if let Some(headers) = upstream.headers.as_ref()
             && let Some(add) = headers.add.as_ref()
         {
             for header_add in add {
+                let expanded_value = expand_variable(&header_add.value, upstream_request);
                 upstream_request
-                    .insert_header(header_add.name.to_string(), header_add.value.to_string())
+                    .insert_header(header_add.name.to_string(), expanded_value)
                     .ok();
             }
         }

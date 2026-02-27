@@ -95,6 +95,7 @@ impl RoutingService {
                         weight: Some(1),
                         headers: None,
                         sni: None,
+                        forwarded_headers: false,
                     })
                     .collect::<Vec<_>>()
                 } else {
