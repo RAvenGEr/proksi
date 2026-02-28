@@ -49,6 +49,13 @@ impl RoutingService {
                 );
             }
 
+            let security_level = route
+                .ssl
+                .as_ref()
+                .and_then(|v| v.security_level)
+                .or(self.config.server.security_level)
+                .unwrap_or(1);
+
             add_route_to_router(
                 &route.host,
                 route.upstreams.clone(),
@@ -57,6 +64,7 @@ impl RoutingService {
                 route.middleware.as_ref(),
                 route.cache.as_ref(),
                 self_signed_cert_on_failure.unwrap_or(false),
+                security_level,
             );
 
             tracing::debug!("Added route: {}, {:?}", route.host, route.upstreams);
@@ -112,6 +120,7 @@ impl RoutingService {
             Some(&route.middleware),
             None,
             route.self_signed_certs,
+            route.security_level,
         );
 
         tracing::debug!(
@@ -177,6 +186,7 @@ fn add_route_to_router(
     middleware: Option<&Vec<RouteMiddleware>>,
     cache: Option<&RouteCache>,
     should_self_sign_cert_on_failure: bool,
+    security_level: u32,
 ) {
     // Check if current route already exists
     let upstream_str = upstream_input
@@ -208,6 +218,7 @@ fn add_route_to_router(
     route_store_container.self_signed_certificate = should_self_sign_cert_on_failure;
     route_store_container.upstreams = upstream_input;
     route_store_container.cache = cache.cloned();
+    route_store_container.security_level = security_level;
 
     if let Some(headers) = headers {
         if let Some(headers) = headers.add.as_ref() {
@@ -291,21 +302,43 @@ async fn add_route_ssl_to_store(route: &Route) -> Result<(), anyhow::Error> {
             ssl_path.key
         )
     })?;
-    let pem = X509::from_pem(pem_from_file.as_bytes()).map_err(|err| {
+
+    let end = "-----END CERTIFICATE-----";
+    let split = pem_from_file
+        .split_inclusive(end)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<&str>>();
+
+    let Some(leaf_pem) = split.first() else {
+        return Err(anyhow::anyhow!(
+            "Certificate file {:?} is empty",
+            ssl_path.pem
+        ));
+    };
+
+    let leaf = X509::from_pem(leaf_pem.as_bytes()).map_err(|err| {
         anyhow::anyhow!(
-            "Failed to load certificate from file {:?}: {err}",
+            "Failed to load leaf certificate from file {:?}: {err}",
             ssl_path.pem
         )
     })?;
 
+    let mut chain = Vec::new();
+    for chain_pem in split.iter().skip(1) {
+        let cert = X509::from_pem(chain_pem.as_bytes()).map_err(|err| {
+            anyhow::anyhow!(
+                "Failed to load chain certificate from file {:?}: {err}",
+                ssl_path.pem
+            )
+        })?;
+        chain.push(cert);
+    }
+
     stores::global::get_store()
         .set_certificate(
             &route.host,
-            stores::certificates::Certificate {
-                key,
-                leaf: pem,
-                chain: None,
-            },
+            stores::certificates::Certificate { key, leaf, chain },
         )
         .await
         .map_err(|_| {

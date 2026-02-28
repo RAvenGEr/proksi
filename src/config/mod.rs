@@ -422,6 +422,10 @@ pub struct RouteSsl {
     /// The default value is <true>.
     #[serde(default = "bool_true")]
     pub self_signed_fallback: bool,
+
+    /// The TLS security level for the route.
+    /// If not provided, the global security level will be used.
+    pub security_level: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -633,6 +637,10 @@ pub struct ServerCfg {
         default_value = "0.0.0.0:80"
     )]
     pub http_address: Option<Cow<'static, str>>,
+
+    /// The default TLS security level for the server. (default: 1)
+    #[arg(long = "server.security_level", default_value = "1")]
+    pub security_level: Option<u32>,
 }
 
 /// The main configuration struct.
@@ -755,6 +763,7 @@ impl Default for Config {
             server: ServerCfg {
                 https_address: Some(Cow::Borrowed("0.0.0.0:443")),
                 http_address: Some(Cow::Borrowed("0.0.0.0:80")),
+                security_level: Some(1),
             },
             worker_threads: Some(2),
             upstream: UpstreamPeerConfig::default(),

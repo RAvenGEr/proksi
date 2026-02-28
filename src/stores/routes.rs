@@ -46,6 +46,8 @@ pub struct RouteStoreContainer {
     pub middleware: Vec<RouteMiddleware>,
 
     pub cache: Option<RouteCache>,
+
+    pub security_level: u32,
 }
 
 impl Default for RouteStoreContainer {
@@ -61,6 +63,7 @@ impl Default for RouteStoreContainer {
             middleware: Vec::new(),
             upstreams: Vec::with_capacity(0),
             cache: None,
+            security_level: 1,
         }
     }
 }
@@ -76,6 +79,7 @@ impl RouteStoreContainer {
             middleware: Vec::new(),
             upstreams: Vec::with_capacity(5),
             cache: None,
+            security_level: 1,
         }
     }
 }

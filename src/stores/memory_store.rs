@@ -98,7 +98,7 @@ mod tests {
         Certificate {
             key,
             leaf: cert,
-            chain: None,
+            chain: Vec::new(),
         }
     }
 

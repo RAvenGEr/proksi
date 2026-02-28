@@ -10,14 +10,14 @@ use std::error::Error;
 pub struct Certificate {
     pub key: PKey<Private>,
     pub leaf: X509,
-    pub chain: Option<X509>,
+    pub chain: Vec<X509>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct SerializableCertificate {
     key: String,
     leaf: String,
-    chain: Option<String>,
+    chain: Vec<String>,
 }
 
 impl Certificate {
@@ -27,8 +27,9 @@ impl Certificate {
             leaf: base64::encode_block(&self.leaf.to_pem()?),
             chain: self
                 .chain
-                .as_ref()
-                .map(|c| base64::encode_block(&c.to_pem().unwrap_or_default())),
+                .iter()
+                .map(|c| base64::encode_block(&c.to_pem().unwrap_or_default()))
+                .collect(),
         })
     }
 
@@ -38,12 +39,14 @@ impl Certificate {
 
         let key = PKey::private_key_from_pem(&key_data)?;
         let leaf = X509::from_pem(&leaf_data)?;
-        let chain = if let Some(chain_b64) = cert.chain {
-            let chain_data = base64::decode_block(&chain_b64)?;
-            Some(X509::from_pem(&chain_data)?)
-        } else {
-            None
-        };
+        let chain = cert
+            .chain
+            .into_iter()
+            .map(|chain_b64| {
+                let chain_data = base64::decode_block(&chain_b64)?;
+                Ok(X509::from_pem(&chain_data)?)
+            })
+            .collect::<Result<Vec<X509>, Box<dyn Error>>>()?;
 
         Ok(Certificate { key, leaf, chain })
     }

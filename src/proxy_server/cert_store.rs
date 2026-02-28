@@ -38,9 +38,19 @@ impl TlsAccept for CertStore {
     /// based on the server name
     async fn certificate_callback(&self, ssl: &mut pingora::tls::ssl::SslRef) {
         // Due to the sni_callback function, we can safely unwrap here
-        let host_name = ssl.servername(NameType::HOST_NAME).unwrap_or_default();
+        let host_name = ssl.servername(NameType::HOST_NAME).unwrap_or_default().to_string();
 
-        let Some(cert) = stores::global::get_store().get_certificate(host_name).await else {
+        let security_level = if let Some(route) = crate::stores::get_route_by_key(&host_name) {
+            route.security_level
+        } else {
+            1
+        };
+
+        // Set security level to support a wider range of signature algorithms if needed
+        // This helps with "no suitable signature algorithm" errors in some environments
+        ssl.set_security_level(security_level);
+
+        let Some(cert) = stores::global::get_store().get_certificate(&host_name).await else {
             tracing::info!("No certificate found for host: {:?}", host_name);
             return;
         };
@@ -48,8 +58,8 @@ impl TlsAccept for CertStore {
         ext::ssl_use_private_key(ssl, &cert.key).unwrap();
         ext::ssl_use_certificate(ssl, &cert.leaf).unwrap();
 
-        if let Some(chain) = &cert.chain {
-            ext::ssl_add_chain_cert(ssl, chain).unwrap();
+        for chain_cert in &cert.chain {
+            ext::ssl_add_chain_cert(ssl, chain_cert).unwrap();
         }
     }
 }

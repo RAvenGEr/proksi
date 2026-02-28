@@ -38,6 +38,7 @@ pub struct MsgRoute {
     middleware: Vec<RouteMiddleware>,
 
     self_signed_certs: bool,
+    security_level: u32,
 }
 
 #[derive(Clone)]

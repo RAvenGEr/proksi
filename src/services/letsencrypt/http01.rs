@@ -56,20 +56,18 @@ impl LetsencryptService {
         let split = bundle
             .split_inclusive(end)
             .map(str::trim)
+            .filter(|s| !s.is_empty())
             .collect::<Vec<&str>>();
 
-        let leaf_pem = split.first();
-        let chain_pem = split.get(1);
-
-        let Some(leaf) = leaf_pem else {
+        let Some(leaf_pem) = split.first() else {
             return Err(anyhow::anyhow!("Certificate is empty"));
         };
-        let leaf = Self::parse_x509_cert(leaf)?;
-        let mut chain: Option<X509> = None;
+        let leaf = Self::parse_x509_cert(leaf_pem)?;
+        let mut chain: Vec<X509> = Vec::new();
 
-        if let Some(chain_pem) = chain_pem {
-            tracing::trace!("chain PEM: {:?}", chain_pem);
-            chain = Some(Self::parse_x509_cert(chain_pem)?);
+        // All subsequent certificates in the bundle are part of the chain
+        for chain_pem in split.iter().skip(1) {
+            chain.push(Self::parse_x509_cert(chain_pem)?);
         }
 
         let key = Self::parse_private_key(key_pem)?;
@@ -129,39 +127,54 @@ impl LetsencryptService {
 
         tracing::info!("creating an in-memory self-signed certificate for {domain}");
 
-        let rsa = openssl::rsa::Rsa::generate(2048)?;
-        let mut openssl_cert = openssl::x509::X509Builder::new()?;
-        let mut x509_name = openssl::x509::X509NameBuilder::new()?;
+        let cert = {
+            let rsa = openssl::rsa::Rsa::generate(2048)?;
+            let key = pingora::tls::pkey::PKey::from_rsa(rsa)?;
+            let one_year = openssl::asn1::Asn1Time::days_from_now(365)?;
+            let today = openssl::asn1::Asn1Time::days_from_now(0)?;
 
-        x509_name.append_entry_by_text("CN", domain)?;
-        x509_name.append_entry_by_text("ST", "TX")?;
-        x509_name.append_entry_by_text("O", "Proksi")?;
-        // x509_name.append_entry_by_text("CN", "Test")?;
-        let x509_name = x509_name.build();
+            let mut openssl_cert = openssl::x509::X509Builder::new()?;
+            let mut x509_name = openssl::x509::X509NameBuilder::new()?;
 
-        let hash = pingora::tls::hash::MessageDigest::sha256();
-        let key = pingora::tls::pkey::PKey::from_rsa(rsa)?;
-        let one_year = openssl::asn1::Asn1Time::days_from_now(365)?;
-        let today = openssl::asn1::Asn1Time::days_from_now(0)?;
-        openssl_cert.set_version(2)?;
-        openssl_cert.set_subject_name(&x509_name)?;
-        openssl_cert.set_issuer_name(&x509_name)?;
-        openssl_cert.set_pubkey(&key)?;
-        openssl_cert.set_not_before(&today)?;
-        openssl_cert.set_not_after(&one_year)?;
-        openssl_cert.sign(&key, hash)?;
+            x509_name.append_entry_by_text("CN", domain)?;
+            x509_name.append_entry_by_text("ST", "TX")?;
+            x509_name.append_entry_by_text("O", "Proksi")?;
+            let x509_name = x509_name.build();
 
-        let openssl_cert = openssl_cert.build();
+            let hash = pingora::tls::hash::MessageDigest::sha256();
+
+            openssl_cert.set_version(2)?;
+            openssl_cert.set_subject_name(&x509_name)?;
+            openssl_cert.set_issuer_name(&x509_name)?;
+            openssl_cert.set_pubkey(&key)?;
+            openssl_cert.set_not_before(&today)?;
+            openssl_cert.set_not_after(&one_year)?;
+
+            // Modern browsers require a serial number and SAN
+            let serial_number = {
+                let mut serial = openssl::bn::BigNum::new()?;
+                serial.rand(159, openssl::bn::MsbOption::MAYBE_ZERO, false)?;
+                serial.to_asn1_integer()?
+            };
+            openssl_cert.set_serial_number(&serial_number)?;
+
+            let mut san = openssl::x509::extension::SubjectAlternativeName::new();
+            san.dns(domain);
+            let context = openssl_cert.x509v3_context(None, None);
+            let san_extension = san.build(&context)?;
+            openssl_cert.append_extension(san_extension)?;
+
+            openssl_cert.sign(&key, hash)?;
+
+            Certificate {
+                key,
+                leaf: openssl_cert.build(),
+                chain: Vec::new(),
+            }
+        };
 
         stores::global::get_store()
-            .set_certificate(
-                domain,
-                Certificate {
-                    key,
-                    leaf: openssl_cert,
-                    chain: None,
-                },
-            )
+            .set_certificate(domain, cert)
             .await
             .map_err(|o_err| anyhow!("failed to save self-signed certificate {}", o_err))?;
 

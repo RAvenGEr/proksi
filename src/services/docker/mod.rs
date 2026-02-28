@@ -42,6 +42,7 @@ pub struct ProksiDockerRoute {
     host_header_remove: Option<Vec<RouteHeaderRemove>>,
     ssl_certificate_self_signed_on_failure: bool,
     middleware: Option<Vec<RouteMiddleware>>,
+    security_level: Option<u32>,
 }
 
 impl ProksiDockerRoute {
@@ -53,6 +54,7 @@ impl ProksiDockerRoute {
             host_header_remove: None,
             ssl_certificate_self_signed_on_failure: false,
             middleware: None,
+            security_level: None,
         }
     }
 }
@@ -148,6 +150,7 @@ impl LabelService {
             let mut docker_request_id = false;
             let mut basic_auth_user = None;
             let mut basic_auth_password = None;
+            let mut security_level = None;
 
             // Map through extra labels
             for (k, v) in service_labels {
@@ -158,6 +161,9 @@ impl LabelService {
                         "proksi.enabled" => proxy_enabled = v == "true",
                         "proksi.host" => proxy_host = v,
                         "proksi.port" => proxy_port = v,
+                        "proksi.security_level" => {
+                            security_level = v.parse::<u32>().ok();
+                        }
                         k if k.starts_with("proksi.match_with.path.pattern.") => {
                             match_with_path_patterns.push(v.clone());
                         }
@@ -229,6 +235,7 @@ impl LabelService {
                 routed.host_header_remove = route_header_remove;
                 routed.ssl_certificate_self_signed_on_failure =
                     ssl_certificate_self_signed_on_failure;
+                routed.security_level = security_level;
 
                 // This part is optional
                 let mut middleware: Vec<RouteMiddleware> = vec![];
@@ -321,6 +328,7 @@ impl LabelService {
             let mut route_header_add: Option<Vec<RouteHeaderAdd>> = None;
             let mut route_header_remove: Option<Vec<RouteHeaderRemove>> = None;
             let mut ssl_certificate_self_signed_on_failure = false;
+            let mut security_level = None;
 
             // Map through extra labels
             for (k, v) in container_labels {
@@ -330,6 +338,9 @@ impl LabelService {
                         "proksi.enabled" => proxy_enabled = v == "true",
                         "proksi.host" => proxy_host = v,
                         "proksi.port" => proxy_port = v,
+                        "proksi.security_level" => {
+                            security_level = v.parse::<u32>().ok();
+                        }
                         "proksi.headers.add" => {
                             let deser: Vec<RouteHeaderAdd> =
                                 serde_json::from_str(v).unwrap_or(vec![]);
@@ -376,6 +387,7 @@ impl LabelService {
                 routed.host_header_remove = route_header_remove;
                 routed.ssl_certificate_self_signed_on_failure =
                     ssl_certificate_self_signed_on_failure;
+                routed.security_level = security_level;
                 host_map.insert(proxy_host.to_string(), routed);
             }
 
@@ -464,6 +476,10 @@ impl LabelService {
                     middleware: value.middleware.unwrap_or_else(Vec::new),
 
                     self_signed_certs: value.ssl_certificate_self_signed_on_failure,
+                    security_level: value
+                        .security_level
+                        .or(self.config.server.security_level)
+                        .unwrap_or(1),
                 }))
                 .ok();
         }
