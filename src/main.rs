@@ -172,6 +172,30 @@ fn main() -> Result<(), anyhow::Error> {
     tls_settings.set_min_proto_version(Some(pingora::tls::ssl::SslVersion::TLS1_2))?;
     tls_settings.set_max_proto_version(Some(pingora::tls::ssl::SslVersion::TLS1_3))?;
 
+    // Explicitly set signature algorithms to support a wide range of clients and certificates.
+    // This is particularly important for RSA certificates in TLS 1.3, which require RSA-PSS.
+    // Pingora 0.7.0's default may be more restrictive than previous versions.
+    tls_settings
+        .set_sigalgs_list(
+            "RSA-PSS+SHA256:RSA-PSS+SHA384:RSA-PSS+SHA512:\
+             RSA+SHA256:RSA+SHA384:RSA+SHA512:RSA+SHA1:\
+             ECDSA+SHA256:ECDSA+SHA384:ECDSA+SHA512",
+        )
+        .unwrap();
+
+    // Set cipher suites for TLS 1.3 and 1.2 to ensure broad compatibility.
+    tls_settings
+        .set_ciphersuites("TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256")
+        .unwrap();
+    tls_settings
+        .set_cipher_list("ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384")
+        .unwrap();
+
+    // Also set supported groups (curves) to ensure compatibility
+    tls_settings
+        .set_groups_list("P-256:P-384:X25519")
+        .unwrap();
+
     // Add TLS settings to the HTTPS service
     https_secure_service.add_tls_with_settings(&https_address, None, tls_settings);
 
