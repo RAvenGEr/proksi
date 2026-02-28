@@ -35,8 +35,8 @@ pub fn get_route_by_key(key: &str) -> Option<RouteStoreContainer> {
     ROUTE_STORE.pin().get(key).cloned()
 }
 
-pub fn get_routes(
-) -> HashMapRef<'static, String, RouteStoreContainer, RandomState, seize::OwnedGuard<'static>> {
+pub fn get_routes()
+-> HashMapRef<'static, String, RouteStoreContainer, RandomState, seize::OwnedGuard<'static>> {
     ROUTE_STORE.pin_owned()
 }
 

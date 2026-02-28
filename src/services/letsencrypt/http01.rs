@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use acme_v2::{order::NewOrder, Account, DirectoryUrl};
+use acme_v2::{Account, DirectoryUrl, order::NewOrder};
 use anyhow::anyhow;
 use async_trait::async_trait;
 

@@ -5,9 +5,9 @@ use async_trait::async_trait;
 use bytes::Buf;
 use once_cell::sync::Lazy;
 use pingora_cache::{
+    CacheKey, CacheMeta, HitHandler, MissHandler, PurgeType, Storage,
     key::{CacheHashKey, CompactCacheKey},
     trace::SpanHandle,
-    CacheKey, CacheMeta, HitHandler, MissHandler, PurgeType, Storage,
 };
 
 use pingora::Result;

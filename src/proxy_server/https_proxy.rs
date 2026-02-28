@@ -1,7 +1,7 @@
 use std::net::ToSocketAddrs;
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 
@@ -14,7 +14,7 @@ use pingora::http::{RequestHeader, ResponseHeader};
 use pingora::protocols::Digest;
 use pingora::proxy::{ProxyHttp, Session};
 use pingora::upstreams::peer::Peer;
-use pingora::{upstreams::peer::HttpPeer, ErrorType::HTTPStatus};
+use pingora::{ErrorType::HTTPStatus, upstreams::peer::HttpPeer};
 
 use pingora_cache::lock::CacheLock;
 
@@ -23,7 +23,7 @@ use pingora_cache::{
 };
 
 use crate::cache::disk::storage::DiskCache;
-use crate::config::{RouteCacheType, RouteUpstream};
+use crate::config::{RouteCacheType, RouteUpstream, UpstreamPeerConfig};
 use crate::stores::{self, routes::RouteStoreContainer};
 
 use super::default_peer_opts;
@@ -39,7 +39,15 @@ static CACHEABLE_METHODS: Lazy<Vec<http::Method>> =
 static CACHE_LOCK: Lazy<CacheLock> = Lazy::new(|| CacheLock::new(Duration::from_secs(1)));
 
 /// Load balancer proxy struct
-pub struct Router {}
+pub struct Router {
+    peer_config: Arc<UpstreamPeerConfig>,
+}
+
+impl Router {
+    pub fn new(peer_config: Arc<UpstreamPeerConfig>) -> Self {
+        Self { peer_config }
+    }
+}
 
 // type Container = mapref::one::Ref<'static, String, RouteStoreContainer>;
 
@@ -120,7 +128,8 @@ impl ProxyHttp for Router {
         // Middleware phase: request_filter
         // We are checking to see if the request has already been handled
         // by the middleware i.e. (ok(true))
-        if let Ok(true) = execute_request_middleware(session, ctx, &route_container.middleware).await
+        if let Ok(true) =
+            execute_request_middleware(session, ctx, &route_container.middleware).await
         {
             return Ok(true);
         }
@@ -130,7 +139,11 @@ impl ProxyHttp for Router {
         {
             let storage = get_cache_storage(&cache.cache_type);
 
-            stores::insert_cache_routing(&ctx.host, cache.path.to_string_lossy().to_string(), false);
+            stores::insert_cache_routing(
+                &ctx.host,
+                cache.path.to_string_lossy().to_string(),
+                false,
+            );
             session
                 .cache
                 .enable(storage, None, None, Some(&*CACHE_LOCK), None);
@@ -184,7 +197,7 @@ impl ProxyHttp for Router {
             healthy_port == 443,
             upstream.sni.clone().unwrap_or(String::new()),
         );
-        peer.options = default_peer_opts();
+        peer.options = default_peer_opts(self.peer_config.as_ref());
         Ok(Box::new(peer))
     }
 
@@ -211,7 +224,9 @@ impl ProxyHttp for Router {
         }
 
         let cache_state = ctx.extensions.get("cache_state").cloned();
-        if session.cache.enabled() && let Some(cache_state) = cache_state {
+        if session.cache.enabled()
+            && let Some(cache_state) = cache_state
+        {
             // indicates whether it was HIT or MISS in the cache
             upstream_response.insert_header(
                 HeaderName::from_str("cache-status").unwrap(),
@@ -247,7 +262,9 @@ impl ProxyHttp for Router {
             .client_addr()
             .map(|addr| {
                 let s = addr.to_string();
-                if s.starts_with('[') && let Some(end) = s.find(']') {
+                if s.starts_with('[')
+                    && let Some(end) = s.find(']')
+                {
                     return s[1..end].to_string();
                 }
                 s.split(':').next().unwrap_or(&s).to_string()
@@ -258,32 +275,49 @@ impl ProxyHttp for Router {
         let expand_variable = |val: &str, req: &RequestHeader| -> String {
             match val {
                 "$remote_addr" => client_ip.clone(),
-                "$host" => session.get_header("host").map(|v| v.to_str().unwrap_or_default().to_string()).unwrap_or_default(),
-                "$scheme" => session.req_header().uri.scheme_str().unwrap_or("https").to_string(),
-                "$proxy_add_x_forwarded_for" => {
-                    match req.headers.get("X-Forwarded-For") {
-                        Some(v) => {
-                            let prev = v.to_str().unwrap_or_default();
-                            if prev.is_empty() {
-                                client_ip.clone()
-                            } else {
-                                format!("{}, {}", prev, client_ip)
-                            }
+                "$host" => session
+                    .get_header("host")
+                    .map(|v| v.to_str().unwrap_or_default().to_string())
+                    .unwrap_or_default(),
+                "$scheme" => session
+                    .req_header()
+                    .uri
+                    .scheme_str()
+                    .unwrap_or("https")
+                    .to_string(),
+                "$proxy_add_x_forwarded_for" => match req.headers.get("X-Forwarded-For") {
+                    Some(v) => {
+                        let prev = v.to_str().unwrap_or_default();
+                        if prev.is_empty() {
+                            client_ip.clone()
+                        } else {
+                            format!("{}, {}", prev, client_ip)
                         }
-                        None => client_ip.clone(),
                     }
-                }
+                    None => client_ip.clone(),
+                },
                 _ => val.to_string(),
             }
         };
 
         // If enabled, add standard headers first (can be overridden by manual config below)
         if upstream.forwarded_headers {
-            upstream_request.insert_header("X-Forwarded-For", expand_variable("$proxy_add_x_forwarded_for", upstream_request)).ok();
-            upstream_request.insert_header("X-Real-IP", client_ip.clone()).ok();
-            upstream_request.insert_header("X-Forwarded-Proto", "https").ok();
+            upstream_request
+                .insert_header(
+                    "X-Forwarded-For",
+                    expand_variable("$proxy_add_x_forwarded_for", upstream_request),
+                )
+                .ok();
+            upstream_request
+                .insert_header("X-Real-IP", client_ip.clone())
+                .ok();
+            upstream_request
+                .insert_header("X-Forwarded-Proto", "https")
+                .ok();
             if let Some(host) = session.get_header("host") {
-                upstream_request.insert_header("X-Forwarded-Host", host).ok();
+                upstream_request
+                    .insert_header("X-Forwarded-Host", host)
+                    .ok();
             }
         }
 

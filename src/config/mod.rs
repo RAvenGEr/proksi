@@ -2,13 +2,117 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use clap::{Args, Parser, ValueEnum};
 use figment::{
-    providers::{Env, Format, Serialized, Yaml},
     Figment, Provider,
+    providers::{Env, Format, Serialized, Yaml},
 };
 use hcl::Hcl;
 
 use serde::{Deserialize, Deserializer, Serialize};
 use tracing::level_filters::LevelFilter;
+
+fn default_read_timeout_secs() -> u64 {
+    360
+}
+
+fn default_write_timeout_secs() -> u64 {
+    60
+}
+
+fn default_connection_timeout_secs() -> u64 {
+    10
+}
+
+fn default_total_connection_timeout_secs() -> u64 {
+    20
+}
+
+fn default_idle_timeout_secs() -> u64 {
+    360
+}
+
+fn default_h2_ping_interval_secs() -> u64 {
+    60
+}
+
+fn default_max_h2_streams() -> u32 {
+    2
+}
+
+fn default_verify_cert() -> bool {
+    true
+}
+
+fn default_h2_max_concurrent_streams() -> u32 {
+    100
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Args)]
+pub struct H2Config {
+    #[serde(default = "default_h2_max_concurrent_streams")]
+    #[arg(
+        long = "h2.max_concurrent_streams",
+        default_value_t = default_h2_max_concurrent_streams()
+    )]
+    pub max_concurrent_streams: u32,
+}
+
+impl Default for H2Config {
+    fn default() -> Self {
+        Self {
+            max_concurrent_streams: default_h2_max_concurrent_streams(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Args)]
+pub struct UpstreamPeerConfig {
+    #[serde(default = "default_read_timeout_secs")]
+    #[arg(long = "upstream.read_timeout_secs", default_value_t = 360)]
+    pub read_timeout_secs: u64,
+
+    #[serde(default = "default_write_timeout_secs")]
+    #[arg(long = "upstream.write_timeout_secs", default_value_t = 60)]
+    pub write_timeout_secs: u64,
+
+    #[serde(default = "default_connection_timeout_secs")]
+    #[arg(long = "upstream.connection_timeout_secs", default_value_t = 10)]
+    pub connection_timeout_secs: u64,
+
+    #[serde(default = "default_total_connection_timeout_secs")]
+    #[arg(long = "upstream.total_connection_timeout_secs", default_value_t = 20)]
+    pub total_connection_timeout_secs: u64,
+
+    #[serde(default = "default_idle_timeout_secs")]
+    #[arg(long = "upstream.idle_timeout_secs", default_value_t = 360)]
+    pub idle_timeout_secs: u64,
+
+    #[serde(default = "default_h2_ping_interval_secs")]
+    #[arg(long = "upstream.h2_ping_interval_secs", default_value_t = 60)]
+    pub h2_ping_interval_secs: u64,
+
+    #[serde(default = "default_max_h2_streams")]
+    #[arg(long = "upstream.max_h2_streams", default_value_t = 2)]
+    pub max_h2_streams: u32,
+
+    #[serde(default = "default_verify_cert")]
+    #[arg(long = "upstream.verify_cert", default_value_t = true)]
+    pub verify_cert: bool,
+}
+
+impl Default for UpstreamPeerConfig {
+    fn default() -> Self {
+        Self {
+            read_timeout_secs: default_read_timeout_secs(),
+            write_timeout_secs: default_write_timeout_secs(),
+            connection_timeout_secs: default_connection_timeout_secs(),
+            total_connection_timeout_secs: default_total_connection_timeout_secs(),
+            idle_timeout_secs: default_idle_timeout_secs(),
+            h2_ping_interval_secs: default_h2_ping_interval_secs(),
+            max_h2_streams: default_max_h2_streams(),
+            verify_cert: default_verify_cert(),
+        }
+    }
+}
 
 mod hcl;
 mod validate;
@@ -603,6 +707,12 @@ pub(crate) struct Config {
     #[clap(short, long, required = false, default_value = "2")]
     pub worker_threads: Option<usize>,
 
+    #[command(flatten)]
+    pub upstream: UpstreamPeerConfig,
+
+    #[command(flatten)]
+    pub h2: H2Config,
+
     /// The PATH to the configuration file to be used.
     ///
     /// The configuration file should be named either `proksi.hcl` or `proksi.yaml`
@@ -647,6 +757,8 @@ impl Default for Config {
                 http_address: Some(Cow::Borrowed("0.0.0.0:80")),
             },
             worker_threads: Some(2),
+            upstream: UpstreamPeerConfig::default(),
+            h2: H2Config::default(),
             upgrade: false,
             daemon: false,
             docker: Docker::default(),
@@ -791,7 +903,9 @@ pub(crate) fn load_from_path(
                 .merge(Hcl::file(format!("{config_path}/proksi.hcl")));
         } else if use_minimal_default {
             // No config files found and user didn't explicitly provide a path
-            eprintln!("Warning: No configuration files found. Using minimal default configuration with Let's Encrypt disabled.");
+            eprintln!(
+                "Warning: No configuration files found. Using minimal default configuration with Let's Encrypt disabled."
+            );
             figment = figment.merge(Serialized::defaults(create_minimal_default_config()));
         } else {
             // Use original behavior - try to load the files anyway (figment will handle missing files)
@@ -1289,7 +1403,10 @@ mod tests {
             let middleware = route.middleware.as_ref().unwrap();
             let middleware_config = middleware[0].config.as_ref().unwrap();
             assert_eq!(middleware[0].name, "cors");
-            assert_eq!(middleware_config.get("allowed_origins"), Some(&json!(["*"])));
+            assert_eq!(
+                middleware_config.get("allowed_origins"),
+                Some(&json!(["*"]))
+            );
 
             let ssl = route.ssl.as_ref().unwrap();
             let path = ssl.path.as_ref().unwrap();

@@ -8,7 +8,7 @@ use letsencrypt::http01::LetsencryptService;
 use pingora::server::{ListenFds, ShutdownWatch};
 use tokio::sync::broadcast::Sender;
 
-use crate::{config::Config, MsgProxy};
+use crate::{MsgProxy, config::Config};
 
 pub mod config;
 pub mod discovery;

@@ -19,7 +19,7 @@ use crate::MsgRoute;
 use crate::config::{Route, RouteCache, RouteUpstream};
 use crate::{
     MsgProxy,
-    config::{Config, RouteHeader, RouteMatcher, RoutePathMatcher, RouteMiddleware},
+    config::{Config, RouteHeader, RouteMatcher, RouteMiddleware, RoutePathMatcher},
     stores::{self, routes::RouteStoreContainer},
 };
 

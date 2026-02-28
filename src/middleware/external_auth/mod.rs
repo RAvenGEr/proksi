@@ -210,7 +210,9 @@ impl ExternalAuth {
                             Self::rpc_worker_loop(socket_path_owned, rx).await;
                         });
                     })
-                    .map_err(|e| anyhow!("external_auth: failed to spawn rpc worker thread: {e}"))?;
+                    .map_err(|e| {
+                        anyhow!("external_auth: failed to spawn rpc worker thread: {e}")
+                    })?;
 
                 Ok(handle)
             }

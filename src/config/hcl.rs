@@ -1,8 +1,8 @@
 use std::{io::Read, path::Path};
 
 use hcl::{
-    eval::{Context, FuncArgs},
     Value,
+    eval::{Context, FuncArgs},
 };
 
 pub struct HclFormat;

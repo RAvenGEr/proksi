@@ -37,3 +37,12 @@ Below you can find a full list of the configuration keys and their corresponding
 | `docker.enabled` | `PROKSI_DOCKER__ENABLED` | Whether the docker service should be enabled |
 | `docker.interval_secs` | `PROKSI_DOCKER__INTERVAL_SECS` | The interval (in seconds) to check for label updates |
 | `docker.endpoint` | `PROKSI_DOCKER__ENDPOINT` | The docker endpoint to connect to the docker socket/api |
+| `upstream.read_timeout_secs` | `PROKSI_UPSTREAM__READ_TIMEOUT_SECS` | Seconds allowed for the upstream read timeout |
+| `upstream.write_timeout_secs` | `PROKSI_UPSTREAM__WRITE_TIMEOUT_SECS` | Seconds allowed for the upstream write timeout |
+| `upstream.connection_timeout_secs` | `PROKSI_UPSTREAM__CONNECTION_TIMEOUT_SECS` | Seconds to wait while establishing new upstream connections |
+| `upstream.total_connection_timeout_secs` | `PROKSI_UPSTREAM__TOTAL_CONNECTION_TIMEOUT_SECS` | Max seconds a connection may take end-to-end |
+| `upstream.idle_timeout_secs` | `PROKSI_UPSTREAM__IDLE_TIMEOUT_SECS` | Seconds before an idle upstream connection is closed |
+| `upstream.h2_ping_interval_secs` | `PROKSI_UPSTREAM__H2_PING_INTERVAL_SECS` | Ping interval for HTTP/2 connections |
+| `upstream.max_h2_streams` | `PROKSI_UPSTREAM__MAX_H2_STREAMS` | Maximum concurrent HTTP/2 streams per upstream connection |
+| `upstream.verify_cert` | `PROKSI_UPSTREAM__VERIFY_CERT` | Whether Pingora verifies upstream TLS certificates |
+| `h2.max_concurrent_streams` | `PROKSI_H2__MAX_CONCURRENT_STREAMS` | Maximum HTTP/2 streams advertised to clients |

@@ -12,6 +12,33 @@ Proksi can be configured using HCL ([HashiCorp Configuration Language](https://g
 touch proksi.hcl
 ```
 
+## Upstream defaults
+
+The `upstream` block lets you tune the Pingora peer options that apply to every request. The defaults give you 360s read/idle timeouts, short connection/write timeouts, HTTP/2 keepalives, and TLS verification enabled:
+
+```hcl
+upstream {
+  read_timeout_secs = 360
+  write_timeout_secs = 60
+  connection_timeout_secs = 10
+  total_connection_timeout_secs = 20
+  idle_timeout_secs = 360
+  h2_ping_interval_secs = 60
+  max_h2_streams = 2
+  verify_cert = true
+}
+```
+
+## H2 defaults
+
+Use the `h2` block when you need to control the number of HTTP/2 streams advertised to clients. The default is `100`; set it to `0` to rely on Pingora’s own defaults.
+
+```hcl
+h2 {
+  max_concurrent_streams = 100
+}
+```
+
 ```hcl
 worker_threads = env("WORKER_THREADS")
 

@@ -1,13 +1,12 @@
 use std::{
-    borrow::Cow, collections::HashMap, net::SocketAddr, str::FromStr, sync::Arc,
-    time::Duration,
+    borrow::Cow, collections::HashMap, net::SocketAddr, str::FromStr, sync::Arc, time::Duration,
 };
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bollard::{
+    API_DEFAULT_VERSION, Docker,
     query_parameters::{ListContainersOptions, ListServicesOptions},
-    Docker, API_DEFAULT_VERSION,
 };
 use pingora::{
     server::{ListenFds, ShutdownWatch},
@@ -18,8 +17,8 @@ use tokio::sync::broadcast::Sender;
 use tracing::{debug, error, info};
 
 use crate::{
-    config::{Config, DockerServiceMode, RouteHeaderAdd, RouteHeaderRemove, RouteMiddleware},
     MsgProxy, MsgRoute,
+    config::{Config, DockerServiceMode, RouteHeaderAdd, RouteHeaderRemove, RouteMiddleware},
 };
 
 /// Based on the provided endpoint, returns the correct Docker client
@@ -182,7 +181,9 @@ impl LabelService {
                         "proksi.middleware.oauth2.client_secret" => {
                             oauth2_client_secret = Some(v.clone());
                         }
-                        "proksi.middleware.oauth2.jwt_secret" => oauth2_jwt_secret = Some(v.clone()),
+                        "proksi.middleware.oauth2.jwt_secret" => {
+                            oauth2_jwt_secret = Some(v.clone())
+                        }
                         "proksi.middleware.oauth2.validations" => {
                             oauth2_validations =
                                 Some(serde_json::from_str(v).unwrap_or_else(|_| json!([])));
@@ -390,7 +391,9 @@ impl LabelService {
 
                 // skip values from networks that Proksi does not have access to
                 if ip_on_network.is_empty() || socket_addr.is_err() {
-                    debug!("Could not parse the ip address {ip_plus_port} of the container {container_names:?}");
+                    debug!(
+                        "Could not parse the ip address {ip_plus_port} of the container {container_names:?}"
+                    );
                     continue;
                 }
 

@@ -2,8 +2,8 @@ use std::{
     io,
     pin::Pin,
     sync::{
-        atomic::{AtomicI64, Ordering},
         Arc,
+        atomic::{AtomicI64, Ordering},
     },
     task::{Context, Poll},
 };

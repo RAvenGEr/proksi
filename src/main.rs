@@ -2,16 +2,19 @@ use ::pingora::server::Server;
 
 use bytes::Bytes;
 use clap::crate_version;
-use config::{load, LogFormat, RouteHeaderAdd, RouteHeaderRemove, RouteMiddleware};
-use stores::{global::init_store, MemoryStore};
+use config::{LogFormat, RouteHeaderAdd, RouteHeaderRemove, RouteMiddleware, load};
+use stores::{MemoryStore, global::init_store};
 use tracing_subscriber::EnvFilter;
 
 use std::{borrow::Cow, sync::Arc};
 
-use pingora::{listeners::tls::TlsSettings, proxy::http_proxy_service, server::configuration::Opt};
+use pingora::{
+    listeners::tls::TlsSettings, protocols::http::v2::server::H2Options, proxy::http_proxy_service,
+    server::configuration::Opt,
+};
 
 use proxy_server::cert_store::CertStore;
-use services::{logger::ProxyLoggerReceiver, BackgroundFunctionService};
+use services::{BackgroundFunctionService, logger::ProxyLoggerReceiver};
 
 mod cache;
 mod channel;
@@ -140,8 +143,15 @@ fn main() -> Result<(), anyhow::Error> {
 
     // Service: HTTPS Load Balancer (main service)
     // The router will also handle health checks and failover in case of upstream failure
-    let router = proxy_server::https_proxy::Router {};
+    let router = proxy_server::https_proxy::Router::new(Arc::new(proxy_config.upstream.clone()));
     let mut https_secure_service = http_proxy_service(&pingora_server.configuration, router);
+    if let Some(app) = https_secure_service.app_logic_mut()
+        && proxy_config.h2.max_concurrent_streams > 0
+    {
+        let mut h2_opts = H2Options::default();
+        h2_opts.max_concurrent_streams(proxy_config.h2.max_concurrent_streams);
+        app.h2_options = Some(h2_opts);
+    }
     http_public_service.add_tcp(&le_address);
 
     // Worker threads per configuration

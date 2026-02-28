@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use http::{
+    StatusCode, Uri,
     header::{CONTENT_LENGTH, CONTENT_TYPE, LOCATION},
     uri::Scheme,
-    StatusCode, Uri,
 };
 use pingora::http::ResponseHeader;
 use pingora::upstreams::peer::HttpPeer;
@@ -63,7 +63,11 @@ impl ProxyHttp for HttpLB {
             // Get the token and proof from the challenge store
             let (token, proof) = challenge_from_host;
             // Get the token from the URL
-            let token_from_url = current_uri.path().split('/').next_back().unwrap_or_default();
+            let token_from_url = current_uri
+                .path()
+                .split('/')
+                .next_back()
+                .unwrap_or_default();
 
             // Token is not the same as the one provided
             if token != token_from_url {

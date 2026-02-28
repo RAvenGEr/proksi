@@ -8,10 +8,10 @@ use async_trait::async_trait;
 
 // use bytes::BufMut;
 use pingora_cache::{
+    CacheKey, Storage,
     key::CacheHashKey,
     storage::{HandleHit, HandleMiss, MissFinishType},
     trace::SpanHandle,
-    CacheKey, Storage,
 };
 
 use pingora::Result;

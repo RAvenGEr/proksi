@@ -58,14 +58,14 @@ impl Store for MemoryStore {
 #[cfg(test)]
 mod tests {
     // No need to import super since we're using specific imports
+    use crate::stores::MemoryStore;
     use crate::stores::certificates::Certificate;
     use crate::stores::store_trait::Store;
-    use crate::stores::MemoryStore;
     use openssl::hash::MessageDigest;
     use openssl::{
         pkey::PKey,
         rsa::Rsa,
-        x509::{X509Name, X509},
+        x509::{X509, X509Name},
     };
 
     // Helper function to create a test certificate
